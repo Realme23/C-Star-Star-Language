@@ -710,7 +710,7 @@ public:
     template<typename T>
     T GetCppType(std::string assert_message = "") const {
         if (assert_message == "") {
-            assert_message = std::string("The wrong type is stored! The correct type is: ") + typeid_of(data).name();
+            assert_message = std::string("The wrong type is stored! The stored type is: ") + typeid_of(data).name();
         }
         if (typeid_of(data) != typeid(T)) {
             PANIC(assert_message.c_str());
@@ -1229,7 +1229,7 @@ public:
         ASSERT(k < (1ULL << 63), "Must be small!");
         size_t k_conv = boost::multiprecision::integer_modulus(k, 1ULL << 63);
         ASSERT((number)k_conv == k, "Must convert better!");
-        if (k_conv < container.size())
+        if (k_conv >= container.size())
             return IAny::ConstructEmpty();
         IAny result = container[k_conv];
         IAny return_value = transform ? transform(result) : result;
@@ -2699,10 +2699,7 @@ Prove for all x{N} and n{N}, Less rejects (n + 1 + x, n)
 //Builds a Function from C++ code
 class FunctionBuilder {
 public:
-
-    //Tag type
-    struct Input {};
-
+    
     enum class FunctionBuilderNodeTypes {
         Uninitialized,          //Error on usage
         ConstantTerminal,       //Represent a Constant Tuple
@@ -2722,7 +2719,17 @@ public:
         CallFunctionNode,       //Calls a predefined function
     } FunctionBuilderNode;
 
-    IMany data;
+    number builder_id = 0;
+    static number max_builder_id;
+    static std::unordered_map<number, IMany> data_static;
+
+    IMany& data() {
+        return data_static[builder_id];
+    }
+
+    const IMany& data() const {
+        return data_static[builder_id];
+    }
 
     static bool isNotUninitialized(FunctionBuilder S) {
         if (S.FunctionBuilderNode == FunctionBuilderNodeTypes::Uninitialized)
@@ -2735,40 +2742,48 @@ public:
 
     FunctionBuilder() {
         FunctionBuilderNode = FunctionBuilderNodeTypes::Uninitialized;
+        builder_id = ++max_builder_id;
+        IMany data_x;
+        data() = data_x;
+        ASSERT(IMany::CompareVector(data(), data_static[builder_id]), "Just added element!");
     }
 
     FunctionBuilder(Tuple T) {
+        FunctionBuilder();
         FunctionBuilderNode = FunctionBuilderNodeTypes::ConstantTerminal;
-        data.InsertTypeEnd(T);
+        data().InsertTypeEnd(T);
     }
 
     FunctionBuilder(number n) {
+        FunctionBuilder();
         FunctionBuilderNode = FunctionBuilderNodeTypes::ConstantTerminal;
-        data.InsertTypeEnd(Tuple(n));
+        data().InsertTypeEnd(Tuple(n));
     }
 
     FunctionBuilder(Function F) {
+        FunctionBuilder();
         FunctionBuilderNode = FunctionBuilderNodeTypes::CallFunctionNode;
-        data.InsertTypeEnd(F);
+        data().InsertTypeEnd(F);
     }
 
     template<std::integral Int>
     FunctionBuilder(Int i) {
+        FunctionBuilder();
         FunctionBuilderNode = FunctionBuilderNodeTypes::ConstantTerminal;
-        data.InsertTypeEnd(Tuple(i));
+        data().InsertTypeEnd(Tuple(i));
     }
 
     static FunctionBuilder Variable() {
         FunctionBuilder SB;
         SB.FunctionBuilderNode = FunctionBuilderNodeTypes::VariableTerminal;
-        SB.data.clear();
+        SB.data().clear();
         return SB;
     }
 
     static FunctionBuilder BorrowFrom() {
         FunctionBuilder SB;
         SB.FunctionBuilderNode = FunctionBuilderNodeTypes::BorrowFromNode;
-        SB.data.clear();
+        SB.data().clear();
         return SB;
     }
 
@@ -2777,11 +2792,11 @@ public:
         ASSUME(isNotUninitialized(lhs), "Must be initialized");
         ASSUME(isNotUninitialized(rhs), "Must be initialized");
         FunctionBuilder result;
-        result.data.InsertTypeEnd<FunctionBuilder>(lhs);
-        result.data.InsertTypeEnd<FunctionBuilder>(rhs);
+        result.data().InsertTypeEnd<FunctionBuilder>(lhs);
+        result.data().InsertTypeEnd<FunctionBuilder>(rhs);
         result.FunctionBuilderNode = FunctionBuilderNodeTypes::FunctionPlus;
-        ASSUME(data.SizeVector() == 2, "Must have 2 elements!");
-        data.AssertAllType<FunctionBuilder>("Must have 2 FunctionBuilders!");
+        ASSUME(data().SizeVector() == 2, "Must have 2 elements!");
+        data().AssertAllType<FunctionBuilder>("Must have 2 FunctionBuilders!");
         return result;
     }
 
@@ -2790,8 +2805,8 @@ public:
         ASSUME(isNotUninitialized(lhs), "Must be initialized");
         ASSUME(isNotUninitialized(rhs), "Must be initialized");
         FunctionBuilder result;
-        result.data.InsertTypeEnd<FunctionBuilder>(lhs);
-        result.data.InsertTypeEnd<FunctionBuilder>(rhs);
+        result.data().InsertTypeEnd<FunctionBuilder>(lhs);
+        result.data().InsertTypeEnd<FunctionBuilder>(rhs);
         result.FunctionBuilderNode = FunctionBuilderNodeTypes::FunctionMinus;
         return result;
     }
@@ -2801,8 +2816,8 @@ public:
         ASSUME(isNotUninitialized(lhs), "Must be initialized");
         ASSUME(isNotUninitialized(rhs), "Must be initialized");
         FunctionBuilder result;
-        result.data.InsertTypeEnd<FunctionBuilder>(lhs);
-        result.data.InsertTypeEnd<FunctionBuilder>(rhs);
+        result.data().InsertTypeEnd<FunctionBuilder>(lhs);
+        result.data().InsertTypeEnd<FunctionBuilder>(rhs);
         result.FunctionBuilderNode = FunctionBuilderNodeTypes::FunctionProduct;
         return result;
     }
@@ -2812,8 +2827,8 @@ public:
         ASSUME(isNotUninitialized(lhs), "Must be initialized");
         ASSUME(isNotUninitialized(rhs), "Must be initialized");
         FunctionBuilder result;
-        result.data.InsertTypeEnd<FunctionBuilder>(lhs);
-        result.data.InsertTypeEnd<FunctionBuilder>(rhs);
+        result.data().InsertTypeEnd<FunctionBuilder>(lhs);
+        result.data().InsertTypeEnd<FunctionBuilder>(rhs);
         result.FunctionBuilderNode = FunctionBuilderNodeTypes::FunctionQuotient;
         return result;
     }
@@ -2823,8 +2838,8 @@ public:
         ASSUME(isNotUninitialized(lhs), "Must be initialized");
         ASSUME(isNotUninitialized(rhs), "Must be initialized");
         FunctionBuilder result;
-        result.data.InsertTypeEnd<FunctionBuilder>(lhs);
-        result.data.InsertTypeEnd<FunctionBuilder>(rhs);
+        result.data().InsertTypeEnd<FunctionBuilder>(lhs);
+        result.data().InsertTypeEnd<FunctionBuilder>(rhs);
         result.FunctionBuilderNode = FunctionBuilderNodeTypes::FunctionMod;
         return result;
     }
@@ -2836,10 +2851,10 @@ public:
         ASSUME(isNotUninitialized(c), "Must be initialized");
         ASSUME(isNotUninitialized(d), "Must be initialized");
         FunctionBuilder result;
-        result.data.InsertTypeEnd<FunctionBuilder>(a);
-        result.data.InsertTypeEnd<FunctionBuilder>(b);
-        result.data.InsertTypeEnd<FunctionBuilder>(c);
-        result.data.InsertTypeEnd<FunctionBuilder>(d);
+        result.data().InsertTypeEnd<FunctionBuilder>(a);
+        result.data().InsertTypeEnd<FunctionBuilder>(b);
+        result.data().InsertTypeEnd<FunctionBuilder>(c);
+        result.data().InsertTypeEnd<FunctionBuilder>(d);
         result.FunctionBuilderNode = FunctionBuilderNodeTypes::FunctionPointwiseLess;
         return result;
     }
@@ -2850,9 +2865,9 @@ public:
         ASSUME(isNotUninitialized(b), "Must be initialized");
         ASSUME(isNotUninitialized(x), "Must be initialized");
         FunctionBuilder result;
-        result.data.InsertTypeEnd<FunctionBuilder>(a);
-        result.data.InsertTypeEnd<FunctionBuilder>(b);
-        result.data.InsertTypeEnd<FunctionBuilder>(x);
+        result.data().InsertTypeEnd<FunctionBuilder>(a);
+        result.data().InsertTypeEnd<FunctionBuilder>(b);
+        result.data().InsertTypeEnd<FunctionBuilder>(x);
         result.FunctionBuilderNode = FunctionBuilderNodeTypes::FunctionPiecewiseLess;
         return result;
     }
@@ -2864,10 +2879,10 @@ public:
         ASSUME(isNotUninitialized(c), "Must be initialized");
         ASSUME(isNotUninitialized(d), "Must be initialized");
         FunctionBuilder result;
-        result.data.InsertTypeEnd<FunctionBuilder>(a);
-        result.data.InsertTypeEnd<FunctionBuilder>(b);
-        result.data.InsertTypeEnd<FunctionBuilder>(c);
-        result.data.InsertTypeEnd<FunctionBuilder>(d);
+        result.data().InsertTypeEnd<FunctionBuilder>(a);
+        result.data().InsertTypeEnd<FunctionBuilder>(b);
+        result.data().InsertTypeEnd<FunctionBuilder>(c);
+        result.data().InsertTypeEnd<FunctionBuilder>(d);
         result.FunctionBuilderNode = FunctionBuilderNodeTypes::FunctionLexicographicLess;
         return result;
     }
@@ -2878,8 +2893,8 @@ public:
         ASSUME(isNotUninitialized(lhs), "Must be initialized");
         ASSUME(isNotUninitialized(index), "Must be initialized");
         FunctionBuilder result;
-        result.data.InsertTypeEnd<FunctionBuilder>(lhs);
-        result.data.InsertTypeEnd<FunctionBuilder>(index);
+        result.data().InsertTypeEnd<FunctionBuilder>(lhs);
+        result.data().InsertTypeEnd<FunctionBuilder>(index);
         result.FunctionBuilderNode = FunctionBuilderNodeTypes::FunctionGetIndex;
         return result;
     }
@@ -2890,8 +2905,8 @@ public:
         ASSUME(isNotUninitialized(lhs), "Must be initialized");
         ASSUME(isNotUninitialized(index), "Must be initialized");
         FunctionBuilder result;
-        result.data.InsertTypeEnd<FunctionBuilder>(lhs);
-        result.data.InsertTypeEnd<FunctionBuilder>(index);
+        result.data().InsertTypeEnd<FunctionBuilder>(lhs);
+        result.data().InsertTypeEnd<FunctionBuilder>(index);
         result.FunctionBuilderNode = FunctionBuilderNodeTypes::FunctionSetIndex;
         return result;
     }
@@ -2903,9 +2918,9 @@ public:
         ASSUME(isNotUninitialized(basecase), "Must be initialized");
         ASSUME(isNotUninitialized(shrink), "Must be initialized");
         FunctionBuilder result;
-        result.data.InsertTypeEnd<FunctionBuilder>(top);
-        result.data.InsertTypeEnd<FunctionBuilder>(basecase);
-        result.data.InsertTypeEnd<FunctionBuilder>(shrink);
+        result.data().InsertTypeEnd<FunctionBuilder>(top);
+        result.data().InsertTypeEnd<FunctionBuilder>(basecase);
+        result.data().InsertTypeEnd<FunctionBuilder>(shrink);
         result.FunctionBuilderNode = FunctionBuilderNodeTypes::FunctionSetIndex;
         return result;
     }
@@ -2921,7 +2936,7 @@ public:
     friend IComparisonToBool operator==(const FunctionBuilder& a, const FunctionBuilder& b) {
         if (a.FunctionBuilderNode != b.FunctionBuilderNode)
             return false;
-        else if (+IMany::CompareVector(a.data, b.data))
+        else if (+IMany::CompareVector(a.data(), b.data()))
             return false;
         else
             return true;
@@ -2929,10 +2944,13 @@ public:
 
     //Sets a borrowed-from node to a non borrowed-from node
     void setBorrowed(const FunctionBuilder& F) {
+        number x = builder_id;
         ASSUME(  FunctionBuilderNode == FunctionBuilderNodeTypes::BorrowFromNode, "Can only set Borrowed-from nodes!");
         ASSUME(F.FunctionBuilderNode != FunctionBuilderNodeTypes::BorrowFromNode, "Cannot set to Borrowed-from nodes!");
         FunctionBuilderNode = F.FunctionBuilderNode;
-        data = F.data;
+        data() = F.data();
+        ASSUME(FunctionBuilderNode != FunctionBuilderNodeTypes::BorrowFromNode, "Can not set Borrowed-from nodes!");
+        ASSUME(builder_id == x, "builder_id should not change!");
     }
 
     //returns a function that can evaluate the constructed builder
@@ -2944,109 +2962,111 @@ public:
             return {};
         case FunctionBuilder::FunctionBuilderNodeTypes::ConstantTerminal: {
             Function return_value;
-            ASSERT(data.SizeVector() == 1, "Expecting 1 element!");
-            Tuple ConstantValue = data.pick().GetCppType<Tuple>();
+            ASSERT(data().SizeVector() == 1, "Expecting 1 element!");
+            Tuple ConstantValue = data().pick().GetCppType<Tuple>();
             return_value.SetConstant(ConstantValue);
             return return_value;
         }
         case FunctionBuilder::FunctionBuilderNodeTypes::VariableTerminal: {
             Function return_value;
-            ASSERT(data.SizeVector() == 0, "Expecting no element!");
+            ASSERT(data().SizeVector() == 0, "Expecting no element!");
             return_value.SetIdentity();
             return return_value;
         }
         case FunctionBuilder::FunctionBuilderNodeTypes::FunctionPlus: {
             Function return_value;
-            ASSERT(data.SizeVector() == 2, "Expecting 2 elements!");
-            data.AssertAllType<FunctionBuilder>("Expecting 2 FunctionBuilders!");
-            Function F1 = data.nthElementVector(0).GetCppType<FunctionBuilder>().buildFunction();
-            Function F2 = data.nthElementVector(1).GetCppType<FunctionBuilder>().buildFunction();
+            ASSERT(data().SizeVector() == 2, "Expecting 2 elements!");
+            data().AssertAllType<FunctionBuilder>("Expecting 2 FunctionBuilders!");
+            IAny a1 = data().nthElementVector(0);
+            FunctionBuilder FB1 = a1.GetCppType<FunctionBuilder>();
+            Function F1 = FB1.buildFunction();
+            Function F2 = data().nthElementVector(1).GetCppType<FunctionBuilder>().buildFunction();
             return_value.SetAddFunction(F1, F2);
             return return_value;
         }
         case FunctionBuilder::FunctionBuilderNodeTypes::FunctionMinus: {
             Function return_value;
-            ASSERT(data.SizeVector() == 2, "Expecting 2 elements!");
-            Function F1 = data.nthElementVector(0).GetCppType<FunctionBuilder>().buildFunction();
-            Function F2 = data.nthElementVector(1).GetCppType<FunctionBuilder>().buildFunction();
+            ASSERT(data().SizeVector() == 2, "Expecting 2 elements!");
+            Function F1 = data().nthElementVector(0).GetCppType<FunctionBuilder>().buildFunction();
+            Function F2 = data().nthElementVector(1).GetCppType<FunctionBuilder>().buildFunction();
             return_value.SetSubtractFunction(F1, F2);
             return return_value;
         }
         case FunctionBuilder::FunctionBuilderNodeTypes::FunctionProduct: {
             Function return_value;
-            ASSERT(data.SizeVector() == 2, "Expecting 2 elements!");
-            Function F1 = data.nthElementVector(0).GetCppType<FunctionBuilder>().buildFunction();
-            Function F2 = data.nthElementVector(1).GetCppType<FunctionBuilder>().buildFunction();
+            ASSERT(data().SizeVector() == 2, "Expecting 2 elements!");
+            Function F1 = data().nthElementVector(0).GetCppType<FunctionBuilder>().buildFunction();
+            Function F2 = data().nthElementVector(1).GetCppType<FunctionBuilder>().buildFunction();
             return_value.SetProductFunction(F1, F2);
             return return_value;
         }
         case FunctionBuilder::FunctionBuilderNodeTypes::FunctionQuotient: {
             Function return_value;
-            ASSERT(data.SizeVector() == 2, "Expecting 2 elements!");
-            Function F1 = data.nthElementVector(0).GetCppType<FunctionBuilder>().buildFunction();
-            Function F2 = data.nthElementVector(1).GetCppType<FunctionBuilder>().buildFunction();
+            ASSERT(data().SizeVector() == 2, "Expecting 2 elements!");
+            Function F1 = data().nthElementVector(0).GetCppType<FunctionBuilder>().buildFunction();
+            Function F2 = data().nthElementVector(1).GetCppType<FunctionBuilder>().buildFunction();
             return_value.SetQuotientFunction(F1, F2);
             return return_value;
         }
         case FunctionBuilder::FunctionBuilderNodeTypes::FunctionMod: {
             Function return_value;
-            ASSERT(data.SizeVector() == 2, "Expecting 2 elements!");
-            Function F1 = data.nthElementVector(0).GetCppType<FunctionBuilder>().buildFunction();
-            Function F2 = data.nthElementVector(1).GetCppType<FunctionBuilder>().buildFunction();
+            ASSERT(data().SizeVector() == 2, "Expecting 2 elements!");
+            Function F1 = data().nthElementVector(0).GetCppType<FunctionBuilder>().buildFunction();
+            Function F2 = data().nthElementVector(1).GetCppType<FunctionBuilder>().buildFunction();
             return_value.SetRemainderFunction(F1, F2);
             return return_value;
         }
         case FunctionBuilder::FunctionBuilderNodeTypes::FunctionPointwiseLess: {
             Function return_value;
-            ASSERT(data.SizeVector() == 4, "Expecting 4 elements!");
-            Function F0 = data.nthElementVector(0).GetCppType<FunctionBuilder>().buildFunction();
-            Function F1 = data.nthElementVector(1).GetCppType<FunctionBuilder>().buildFunction();
-            Function F2 = data.nthElementVector(2).GetCppType<FunctionBuilder>().buildFunction();
-            Function F3 = data.nthElementVector(3).GetCppType<FunctionBuilder>().buildFunction();
+            ASSERT(data().SizeVector() == 4, "Expecting 4 elements!");
+            Function F0 = data().nthElementVector(0).GetCppType<FunctionBuilder>().buildFunction();
+            Function F1 = data().nthElementVector(1).GetCppType<FunctionBuilder>().buildFunction();
+            Function F2 = data().nthElementVector(2).GetCppType<FunctionBuilder>().buildFunction();
+            Function F3 = data().nthElementVector(3).GetCppType<FunctionBuilder>().buildFunction();
             return_value.SetPointwiseLess(F0, F1, F2, F3);
             return return_value;
         }
         case FunctionBuilder::FunctionBuilderNodeTypes::FunctionPiecewiseLess: {
             Function return_value;
-            ASSERT(data.SizeVector() == 3, "Expecting 3 elements!");
-            Function F0 = data.nthElementVector(0).GetCppType<FunctionBuilder>().buildFunction();
-            Function F1 = data.nthElementVector(1).GetCppType<FunctionBuilder>().buildFunction();
-            Function F2 = data.nthElementVector(2).GetCppType<FunctionBuilder>().buildFunction();
+            ASSERT(data().SizeVector() == 3, "Expecting 3 elements!");
+            Function F0 = data().nthElementVector(0).GetCppType<FunctionBuilder>().buildFunction();
+            Function F1 = data().nthElementVector(1).GetCppType<FunctionBuilder>().buildFunction();
+            Function F2 = data().nthElementVector(2).GetCppType<FunctionBuilder>().buildFunction();
             return_value.SetPiecewiseLess(F0, F1, F2);
             return return_value;
         }
         case FunctionBuilder::FunctionBuilderNodeTypes::FunctionLexicographicLess: {
             Function return_value;
-            ASSERT(data.SizeVector() == 4, "Expecting 4 elements!");
-            Function F0 = data.nthElementVector(0).GetCppType<FunctionBuilder>().buildFunction();
-            Function F1 = data.nthElementVector(1).GetCppType<FunctionBuilder>().buildFunction();
-            Function F2 = data.nthElementVector(2).GetCppType<FunctionBuilder>().buildFunction();
-            Function F3 = data.nthElementVector(3).GetCppType<FunctionBuilder>().buildFunction();
+            ASSERT(data().SizeVector() == 4, "Expecting 4 elements!");
+            Function F0 = data().nthElementVector(0).GetCppType<FunctionBuilder>().buildFunction();
+            Function F1 = data().nthElementVector(1).GetCppType<FunctionBuilder>().buildFunction();
+            Function F2 = data().nthElementVector(2).GetCppType<FunctionBuilder>().buildFunction();
+            Function F3 = data().nthElementVector(3).GetCppType<FunctionBuilder>().buildFunction();
             return_value.SetLexicographicLess(F0, F1, F2, F3);
             return return_value;
         }
         case FunctionBuilder::FunctionBuilderNodeTypes::FunctionGetIndex: {
             Function return_value;
-            ASSERT(data.SizeVector() == 2, "Expecting 2 elements!");
-            Function F0 = data.nthElementVector(0).GetCppType<FunctionBuilder>().buildFunction();
-            Function F1 = data.nthElementVector(1).GetCppType<FunctionBuilder>().buildFunction();
+            ASSERT(data().SizeVector() == 2, "Expecting 2 elements!");
+            Function F0 = data().nthElementVector(0).GetCppType<FunctionBuilder>().buildFunction();
+            Function F1 = data().nthElementVector(1).GetCppType<FunctionBuilder>().buildFunction();
             return_value.SetGetIndex(F0, F1);
             return return_value;
         }
         case FunctionBuilder::FunctionBuilderNodeTypes::FunctionSetIndex: {
             Function return_value;
-            ASSERT(data.SizeVector() == 2, "Expecting 2 elements!");
-            Function F0 = data.nthElementVector(0).GetCppType<FunctionBuilder>().buildFunction();
-            Function F1 = data.nthElementVector(1).GetCppType<FunctionBuilder>().buildFunction();
+            ASSERT(data().SizeVector() == 2, "Expecting 2 elements!");
+            Function F0 = data().nthElementVector(0).GetCppType<FunctionBuilder>().buildFunction();
+            Function F1 = data().nthElementVector(1).GetCppType<FunctionBuilder>().buildFunction();
             return_value.SetSetIndex(F0, F1);
             return return_value;
         }
         case FunctionBuilder::FunctionBuilderNodeTypes::FunctionBorrow: {
             Function return_value;
-            ASSERT(data.SizeVector() == 3, "Expecting 3 elements!");
-            Function F0 = data.nthElementVector(0).GetCppType<FunctionBuilder>().buildFunction();
-            Tuple    F1 = data.nthElementVector(1).GetCppType<Tuple>();
-            std::shared_ptr<Function> F2 = std::make_shared<Function>(data.nthElementVector(2).GetCppType<FunctionBuilder>().buildFunction());
+            ASSERT(data().SizeVector() == 3, "Expecting 3 elements!");
+            Function F0 = data().nthElementVector(0).GetCppType<FunctionBuilder>().buildFunction();
+            Tuple    F1 = data().nthElementVector(1).GetCppType<Tuple>();
+            std::shared_ptr<Function> F2 = std::make_shared<Function>(data().nthElementVector(2).GetCppType<FunctionBuilder>().buildFunction());
             return_value.SetBorrow(F0, F1, F2);
             return return_value;
         }
@@ -3057,14 +3077,41 @@ public:
         }
         case FunctionBuilder::FunctionBuilderNodeTypes::CallFunctionNode: {
             Function return_value;
-            ASSERT(data.SizeVector() == 1, "Expecting 1 elements!");
-            Function F0 = data.nthElementVector(0).GetCppType<Function>();
+            ASSERT(data().SizeVector() == 1, "Expecting 1 elements!");
+            Function F0 = data().nthElementVector(0).GetCppType<Function>();
             return F0;
         }
         default:
             break;
         }
         UNREACHABLE("Unreachable code!");
+    }
+
+    void print_dbg(std::stringstream &s) {
+        if (FunctionBuilderNode == FunctionBuilderNodeTypes::VariableTerminal) {
+            s << "x";
+            return;
+        }
+        else if (FunctionBuilderNode == FunctionBuilderNodeTypes::ConstantTerminal) {
+            s << "build: [" + data().pick().GetCppType<Tuple>().to_str() + "]";
+            return;
+        }
+        else {
+            s << "Elements: [";
+            IMany::MonoVoidFunction PrintRecursive = [&](IAny element) -> void {
+                if (+element.HasCPPType<FunctionBuilder>()) {
+                    element.GetCppType<FunctionBuilder>("").print_dbg(s);
+                    s << ", ";
+                    return;
+                }
+                else
+                    return;
+            };
+            s << "]";
+            data().OperateElement(PrintRecursive);
+            //Everything else is unchanged, only data() is recursively transformed
+            return;
+        }
     }
 
 private:
@@ -3083,16 +3130,17 @@ private:
                     return element;
             };
             FunctionBuilder FB = *this;
-            FB.data = data.TransformMap(ReplaceRecursive);
-            //Everything else is unchanged, only data is recursively transformed
+            FB.data() = data().TransformMap(ReplaceRecursive);
+            //Everything else is unchanged, only data() is recursively transformed
             return FB;
         }
         UNREACHABLE("If-else");
     }
 };
 
+std::unordered_map<number, IMany> FunctionBuilder::data_static{};
+number FunctionBuilder::max_builder_id = 0;
 const FunctionBuilder var_ = FunctionBuilder::Variable();
-
 
 
 class Pointwise;
@@ -3162,7 +3210,7 @@ public:
     FunctionBuilder value;
 
     LexicographicCase1(FunctionBuilder value, Lexicographic test);
-    friend LexicographicCase2 operator|(LexicographicCase1 PC, FunctionBuilder alt_1);
+    friend LexicographicCase2 operator||(LexicographicCase1 PC, FunctionBuilder alt_1);
 };
 
 class LexicographicCase2 {
@@ -3171,7 +3219,7 @@ class LexicographicCase2 {
     FunctionBuilder alt_1;
 public:
     LexicographicCase2(LexicographicCase1 PC, FunctionBuilder alt_1);
-    friend FunctionBuilder operator|(LexicographicCase2 PC, FunctionBuilder alt_2);
+    friend FunctionBuilder operator||(LexicographicCase2 PC, FunctionBuilder alt_2);
 };
 
 class Lexicographic {
@@ -3186,8 +3234,8 @@ LexicographicCase1::LexicographicCase1(FunctionBuilder value, Lexicographic test
 LexicographicCase2::LexicographicCase2(LexicographicCase1 PC, FunctionBuilder alt_1) : test(PC.test), value(PC.value), alt_1(alt_1) {}
 Lexicographic::Lexicographic(FunctionBuilder F) : test(F) {}
 
-LexicographicCase2 operator|(LexicographicCase1 PC, FunctionBuilder alt_1) { return LexicographicCase2(PC, alt_1); }
-FunctionBuilder operator|(LexicographicCase2 PC, FunctionBuilder alt_2) { return FunctionBuilder::BuildLexicographicLess(PC.test, PC.value, PC.alt_1, alt_2); }
+LexicographicCase2 operator||(LexicographicCase1 PC, FunctionBuilder alt_1) { return LexicographicCase2(PC, alt_1); }
+FunctionBuilder operator||(LexicographicCase2 PC, FunctionBuilder alt_2) { return FunctionBuilder::BuildLexicographicLess(PC.test, PC.value, PC.alt_1, alt_2); }
 LexicographicCase1 operator<<(FunctionBuilder F, Lexicographic P) { return LexicographicCase1(F, P); }
 
 
@@ -3195,8 +3243,8 @@ LexicographicCase1 operator<<(FunctionBuilder F, Lexicographic P) { return Lexic
 static Function CreateCase(Tuple case_, FunctionBuilder Value, FunctionBuilder Main, FunctionBuilder Test) {
     FunctionBuilder Identity = var_;
     FunctionBuilder Case = case_;
-    FunctionBuilder IsLess = Test << Case | Main | Value;
-    FunctionBuilder IsMore = Case << Test | Main | IsLess;
+    FunctionBuilder IsLess = Test << Case || Main || Value;
+    FunctionBuilder IsMore = Case << Test || Main || IsLess;
     return IsMore.buildFunction();
 }
 
@@ -3221,13 +3269,16 @@ static Function CreatePiecewiseAt(FunctionBuilder base, FunctionBuilder index, F
 int main() {
     
     //Input variable
-    FunctionBuilder in = var_;
-    FunctionBuilder FibonacciX = (in - 1) + (in - 2);
+    FunctionBuilder in = var_ < 1 || var_ || (1 < var_ || var_ || 1);
+    FunctionBuilder Fibonacci = FunctionBuilder::BorrowFrom();
+    Fibonacci.setBorrowed(Fibonacci(in - 1, 0) + Fibonacci(in - 2, 0));
     //If in < 1 ? in : in > 1 ? in : 1
-    Function Fibonacci = FibonacciX.buildFunction();
-    std::cout << Fibonacci(Tuple(3)).to_str() << '\n';
+    std::stringstream s;
+    Fibonacci.print_dbg(s);
+    Function FibonacciF = Fibonacci.buildFunction();
+    std::cout << FibonacciF(Tuple(3)).to_str() << '\n';
 
-    
+
 
     return 0;
     //    unsigned int x = 1;
