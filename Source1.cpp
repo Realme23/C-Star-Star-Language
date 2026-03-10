@@ -17,10 +17,10 @@
 
 
 //Whether to enable "light/simple" asserts
-#define __ENABLE_ASSERTS 0
+#define __ENABLE_ASSERTS 1
 //Whether to enable "heavy" asserts and the level to enable them at
 //Higher levels have slower, more assertive code
-#define __ENABLE_HEAVY_ASSERTS 0
+#define __ENABLE_HEAVY_ASSERTS 5
 //Whether to enable compiler assumption hints
 #define __ENABLE_ASSUMES 0
 
@@ -136,17 +136,21 @@ namespace boost {
 //__SLOW_BIGNUM: Use debug adaptor (shows the value as string in debuggers)
 //__FAST_BIGNUM: Use bignums but no adaptor
 //If neither: Use Int64s
-#define __SLOW_BIGNUM
+#define __NO_BIGNUM
 #ifdef __SLOW_BIGNUM
 using number = boost::multiprecision::number<boost::multiprecision::debug_adaptor<typename boost::multiprecision::cpp_int::backend_type>, boost::multiprecision::cpp_int::et>;
 std::string to_string(number x) { return x.str(); }
+size_t to_size_t(number n) {}
 #else
 #ifdef __FAST_BIGNUM
 using number = boost::multiprecision::cpp_int;
 std::string to_string(number x) { return x.str(); }
 #else
+#ifdef __NO_BIGNUM
 using number = signed long long;
 std::string to_string(number x) { return std::to_string(x); }
+size_t to_size_t(number n) { return n; }
+#endif
 #endif
 #endif
 
@@ -287,7 +291,6 @@ private:
             return new T(std::forward(q)...);
     }
 };
-
 
 
 //Start
@@ -569,7 +572,7 @@ bool operator==(const IComparisonResult& lhs, const IComparisonResult& rhs) {
 #ifdef __ENABLE_ASSERTS
 #undef __ENABLE_ASSERTS
 #endif
-#define __ENABLE_ASSERTS 0
+#define __ENABLE_ASSERTS 1
 
 //IComparisonResult that autoconverts to bool
 //Asserts if unknown is implicitly converted
@@ -710,14 +713,14 @@ public:
     template<typename T>
     T GetCppType(std::string assert_message = "") const {
         if (assert_message == "") {
-            assert_message = std::string("The wrong type is stored! The stored type is: ") + typeid_of(data).name();
+            assert_message = std::string("The wrong type is stored! The stored type is: ") + typeid_of(data).name() + "\nThe expected type is: " + typeid(T).name();
         }
         if (typeid_of(data) != typeid(T)) {
             PANIC(assert_message.c_str());
         }
         try {
             T return_value = boost::type_erasure::any_cast<T>(data);
-            ASSUME(return_value == boost::type_erasure::any_cast<T>(data), "Stored type must be returned!");
+            ASSUME(return_value == boost::type_erasure::any_cast<T>(data), (std::string("Stored class may not be pure! Failing x == x! The stored class is: ") + typeid(T).name()).c_str());
             return return_value;
         }
         catch (boost::type_erasure::bad_any_cast) {
@@ -939,12 +942,6 @@ public:
 
     //ordered x2, l/r hs_repeats x3, sub/superset x3 = 18
 
-    static IAny get_i_element(const IMany& hs, number index, const MonoIndexFunction hs_index = nullptr, const MonoAnyFunction hs_transform = nullptr)
-    {
-        size_t new_index = (hs_index ? hs_index(index) : index).convert_to<size_t>();
-        return hs_transform ? hs_transform(hs.container[new_index]) : hs.container[new_index];
-    };
-
     class VectorIterateClass {
         IMany* target;
     public:
@@ -1130,12 +1127,15 @@ public:
     template<typename T>
     void InsertTypeEnd(T element) {
         size_t size = container.size();
+        IAny elem = IAny{ element };
 
-        container.emplace_back(element);
+        container.push_back(elem);
 
+        IAny back = container.back();
+        bool x = (back.GetCppType<T>() == elem.GetCppType<T>());
         ASSUME(container.size() == size + 1, "Must have added an element!");
-        ASSUME(container.back() == IAny(element), "Must have pushed element at the end!");
-        ASSUME(container.back().GetStoredType() == typeid(T), "Must have a T stored last!");
+        ASSUME(back.GetStoredType() == typeid(T), "Must have a T stored last!");
+        ASSUME((back == elem), "Must have pushed element at the end!");
     }
 
     //Insert an element-wise transformation of another IMany at the end of this one (nullptr for no transform)
@@ -1242,7 +1242,7 @@ public:
         std::unordered_set<IAny> seen;
         int index2 = 0;
         for (int i = 0; i < container.size() && index2 < index; i++) {
-            size_t k = (indexing ? indexing(i) : i).convert_to<size_t>();
+            size_t k = to_size_t(indexing ? indexing(i) : i);
             if (k >= container.size())
                 return IAny::ConstructEmpty();
             IAny result = container[k];
@@ -1254,7 +1254,7 @@ public:
         }
         if (index2 < index)
             return IAny::ConstructEmpty();
-        size_t k = (indexing ? indexing(index2) : index2).convert_to<size_t>();
+        size_t k = to_size_t(indexing ? indexing(index2) : index2);
         if (k >= container.size())
             return IAny::ConstructEmpty();
         IAny result = container[k];
@@ -1306,20 +1306,33 @@ public:
     friend class PolyMany;
 
 private:
+    //Stored data
     std::vector<IAny> container;
+
+    //A list of names; maps container index to names
+    std::unordered_map<number, std::string> names;
+
+
+    static IAny get_i_element(const IMany& hs, number index, const MonoIndexFunction hs_index = nullptr, const MonoAnyFunction hs_transform = nullptr)
+    {
+        size_t new_index = (hs_index ? hs_index(index) : index);
+        return hs_transform ? hs_transform(hs.container[new_index]) : hs.container[new_index];
+    };
 };
 
+
+//Construct IManys from heterogeneous lists
+//Use as the argument of a function to automatically receive an IMany from an initializer list
 class PolyMany {
     IMany data;
 public:
-
+    PolyMany() = default;
     //Construct from a heterogeneous list
     PolyMany(std::initializer_list<PolyAny> l) {
         for (auto&& x : l) {
             data.container.push_back(x.data);
         }
     }
-
     operator IMany() {
         return data;
     }
@@ -1330,7 +1343,7 @@ public:
 class IMacroList {
 public:
     //Build a new IMacroList
-    static IMacroList Construct() { return IMacroList(); }
+    static IMacroList Newlist() { return IMacroList(); }
     //Append an IAny to the IMacroList (Must be unlocked)
     void Append(const IAny& A) {
         ASSUME(not _lock, "Append to locked IMacroList");
@@ -1353,7 +1366,7 @@ public:
         _lock = true;
     }
     //Produce the IMany (Must NOT be unlocked)
-    IMany Prepare() {
+    IMany BuildIMany() {
         ASSUME(_lock, "Prepare from an unlocked IMacroList");
         return prepared;
     }
@@ -1365,9 +1378,6 @@ private:
 
 
 
-//An indeterminate value of IType T
-//Can be collapsed specifically or automatically
-class Indeterminate {};
 
 
 //A list of bigints
@@ -1444,8 +1454,12 @@ public:
             return true;
         }
         else if (a_lead == b_lead) {
+            //Same height, same lead digits
+            //Iteratively compare smaller digits
             number index = startTa.GetNumberConst_Index(0);
-            while (index --> std::max(a_tail, b_tail)) {
+            //Compare upto the lowest tail
+            number end_index = std::min(endTa.GetNumberConst_Index(0), endTb.GetNumberConst_Index(0));
+            while (index -->= end_index) {
                 number a_indexed = a.GetNumberConst_Index(index);
                 number b_indexed = b.GetNumberConst_Index(index);
                 if (a_indexed > b_indexed) {
@@ -1470,16 +1484,28 @@ public:
 
     std::string to_str() {
         std::string s = "[";
-        for (const std::pair<number, number>& entry : data) {
-            s += to_string(entry.first);
-            s += ": ";
-            s += to_string(entry.second);
-            s += ", ";
+        if (+hasSingleLimb(*this, 0)) {
+            return to_string(GetNumberConst_Index(0));
         }
-        if (s.size() > 1)
+        for (const std::pair<number, number>& entry : data) {
+            if (entry.second != 0) {
+                s += to_string(entry.first);
+                s += ": ";
+                s += to_string(entry.second);
+                s += ", ";
+            }
+        }
+        if (s.size() > 1) {
             s.resize(s.size() - 2);
-        s += "]";
-        return s;
+            s += "]";
+            return s;
+        }
+        else if (s.size() == 1) {
+            return "0";
+        }
+        else {
+            UNREACHABLE("Shouldn't be < 1");
+        }
     }
 
     //Are they equal?
@@ -1496,6 +1522,16 @@ public:
     static IComparisonResult isZero(const Tuple& a) {
         for (const std::pair<number, number>& x : a.data) {
             if (x.second != 0) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    //Does it have only 1 non-zero value at the specified index?
+    static IComparisonResult hasSingleLimb(const Tuple& a, const number at = 0) {
+        for (const std::pair<number, number>& x : a.data) {
+            if (x.first != at and x.second != 0) {
                 return false;
             }
         }
@@ -1848,7 +1884,8 @@ public:
         FunctionNodes().InsertTypeEnd(rhs);
     }
 
-    void SetBorrow(Function shrink, Tuple basecase, std::shared_ptr<Function> top) {
+    //Sets the recursive call - not the recursive definition
+    void SetBorrow(Function shrink, Tuple basecase, Function top) {
         NodeClass() = Function::NodeType::Borrow;
         FunctionNodes().clear();
         FunctionNodes().InsertTypeEnd(top);
@@ -1861,9 +1898,9 @@ public:
         NodeClass() = Function::NodeType::PointwiseLess;
         FunctionNodes().clear();
         FunctionNodes().InsertTypeEnd(check);
+        FunctionNodes().InsertTypeEnd(threshold);
         FunctionNodes().InsertTypeEnd(ifLess);
         FunctionNodes().InsertTypeEnd(ifEqualOrMore);
-        FunctionNodes().InsertTypeEnd(threshold);
     }
 
     //Returns R[-Infinity:threshold[0] - 1] = left[i], R[threshold, Infinity] = right[i]
@@ -1946,8 +1983,8 @@ public:
         }
         case NodeType::PointwisePlus: {
             ASSUME(FunctionNodes().SizeVector() == 2, "FunctionNode Plus must store two elements!");
-            Function lhs_f = IMany::get_i_element(FunctionNodes(), 0).GetCppType<Function>("First element must be a Function!");
-            Function rhs_f = IMany::get_i_element(FunctionNodes(), 1).GetCppType<Function>("Second element must be a Function!");
+            Function lhs_f = FunctionNodes().nthElementVector(0).GetCppType<Function>("First element must be a Function!");
+            Function rhs_f = FunctionNodes().nthElementVector(1).GetCppType<Function>("Second element must be a Function!");
             Tuple lhs_t    = lhs_f(input);
             Tuple rhs_t    = rhs_f(input);
             output = EvaluatePointwisePlus(lhs_t, rhs_t);
@@ -1955,8 +1992,8 @@ public:
         }
         case NodeType::PointwiseMinus: {
             ASSUME(FunctionNodes().SizeVector() == 2, "FunctionNode Minus must store two elements!");
-            Function lhs_f = IMany::get_i_element(FunctionNodes(), 0).GetCppType<Function>("First element must be a Function!");
-            Function rhs_f = IMany::get_i_element(FunctionNodes(), 1).GetCppType<Function>("Second element must be a Function!");
+            Function lhs_f = FunctionNodes().nthElementVector(0).GetCppType<Function>("First element must be a Function!");
+            Function rhs_f = FunctionNodes().nthElementVector(1).GetCppType<Function>("Second element must be a Function!");
             Tuple lhs_t    = lhs_f(input);
             Tuple rhs_t    = rhs_f(input);
             output = EvaluatePointwiseMinus(lhs_t, rhs_t);
@@ -1964,8 +2001,8 @@ public:
         }
         case NodeType::PointwiseProduct: {
             ASSUME(FunctionNodes().SizeVector() == 2, "FunctionNode Product must store two elements!");
-            Function lhs_f = IMany::get_i_element(FunctionNodes(), 0).GetCppType<Function>("First element must be a Function!");
-            Function rhs_f = IMany::get_i_element(FunctionNodes(), 1).GetCppType<Function>("Second element must be a Function!");
+            Function lhs_f = FunctionNodes().nthElementVector(0).GetCppType<Function>("First element must be a Function!");
+            Function rhs_f = FunctionNodes().nthElementVector(1).GetCppType<Function>("Second element must be a Function!");
             Tuple lhs_t    = lhs_f(input);
             Tuple rhs_t    = rhs_f(input);
             output = EvaluatePointwiseProduct(lhs_t, rhs_t);
@@ -1973,8 +2010,8 @@ public:
         }
         case NodeType::PointwiseQuotient: {
             ASSUME(FunctionNodes().SizeVector() == 2, "FunctionNode Quotient must store two elements!");
-            Function lhs_f = IMany::get_i_element(FunctionNodes(), 0).GetCppType<Function>("First element must be a Function!");
-            Function rhs_f = IMany::get_i_element(FunctionNodes(), 1).GetCppType<Function>("Second element must be a Function!");
+            Function lhs_f = FunctionNodes().nthElementVector(0).GetCppType<Function>("First element must be a Function!");
+            Function rhs_f = FunctionNodes().nthElementVector(1).GetCppType<Function>("Second element must be a Function!");
             Tuple    lhs_t = lhs_f(input);
             Tuple    rhs_t = rhs_f(input);
             output = EvaluatePointwiseQuotient(lhs_t, rhs_t);
@@ -1982,8 +2019,8 @@ public:
         }
         case NodeType::PointwiseRemainder: {
             ASSUME(FunctionNodes().SizeVector() == 2, "FunctionNode Remainder must store two elements!");
-            Function lhs_f = IMany::get_i_element(FunctionNodes(), 0).GetCppType<Function>("First element must be a Function!");
-            Function rhs_f = IMany::get_i_element(FunctionNodes(), 1).GetCppType<Function>("Second element must be a Function!");
+            Function lhs_f = FunctionNodes().nthElementVector(0).GetCppType<Function>("First element must be a Function!");
+            Function rhs_f = FunctionNodes().nthElementVector(1).GetCppType<Function>("Second element must be a Function!");
             Tuple    lhs_t = lhs_f(input);
             Tuple    rhs_t = rhs_f(input);
             output = EvaluatePointwiseQuotient(lhs_t, rhs_t);
@@ -1991,22 +2028,22 @@ public:
         }
         case NodeType::PointwiseLess: {
             ASSUME(FunctionNodes().SizeVector() == 4, "FunctionNode PointwiseLess must store four elements!");
-            Function ahs_f = IMany::get_i_element(FunctionNodes(), 0).GetCppType<Function>("First element must be a Function!");
-            Function bhs_f = IMany::get_i_element(FunctionNodes(), 1).GetCppType<Function>("Second element must be a Function!");
-            Function chs_f = IMany::get_i_element(FunctionNodes(), 2).GetCppType<Function>("Third element must be a Function!");
-            Function dhs_f = IMany::get_i_element(FunctionNodes(), 3).GetCppType<Function>("Fourth element must be a Function!");
-            Tuple    ahs_t = ahs_f(input);
-            Tuple    bhs_t = bhs_f(input);
-            Tuple    chs_t = chs_f(input);
-            Tuple    dhs_t = dhs_f(input);
+            Function value = FunctionNodes().nthElementVector(0).GetCppType<Function>("First element must be a Function!");
+            Function test =  FunctionNodes().nthElementVector(1).GetCppType<Function>("Second element must be a Function!");
+            Function alt_1 = FunctionNodes().nthElementVector(2).GetCppType<Function>("Third element must be a Function!");
+            Function alt_2 = FunctionNodes().nthElementVector(3).GetCppType<Function>("Fourth element must be a Function!");
+            Tuple    ahs_t = value(input);
+            Tuple    bhs_t = test(input);
+            Tuple    chs_t = alt_1(input);
+            Tuple    dhs_t = alt_2(input);
             output = EvaluatePointwiseLess(ahs_t, bhs_t, chs_t, dhs_t);
             break;
         }
         case NodeType::PiecewiseLess: {
             ASSUME(FunctionNodes().SizeVector() == 3, "FunctionNode PiecewiseLess must store three elements!");
-            Function ahs_f = IMany::get_i_element(FunctionNodes(), 0).GetCppType<Function>("First element must be a Function!");
-            Function bhs_f = IMany::get_i_element(FunctionNodes(), 1).GetCppType<Function>("Second element must be a Function!");
-            Function chs_f = IMany::get_i_element(FunctionNodes(), 2).GetCppType<Function>("Third element must be a Function!");
+            Function ahs_f = FunctionNodes().nthElementVector(0).GetCppType<Function>("First element must be a Function!");
+            Function bhs_f = FunctionNodes().nthElementVector(1).GetCppType<Function>("Second element must be a Function!");
+            Function chs_f = FunctionNodes().nthElementVector(2).GetCppType<Function>("Third element must be a Function!");
             Tuple    ahs_t = ahs_f(input);
             Tuple    bhs_t = bhs_f(input);
             Tuple    chs_t = chs_f(input);
@@ -2015,36 +2052,36 @@ public:
         }
         case NodeType::GetIndex: {
             ASSUME(FunctionNodes().SizeVector() == 2, "FunctionNode GetIndex must store two elements!");
-            Function ahs_f = IMany::get_i_element(FunctionNodes(), 0).GetCppType<Function>("First element must be a Function!");
-            Function bhs_f = IMany::get_i_element(FunctionNodes(), 1).GetCppType<Function>("Second element must be a Function!");
-            Tuple ahs_t    = ahs_f(input);
-            Tuple bhs_t    = bhs_f(input);
+            Function ahs_f = FunctionNodes().nthElementVector(0).GetCppType<Function>("First element must be a Function!");
+            Function bhs_f = FunctionNodes().nthElementVector(1).GetCppType<Function>("Second element must be a Function!");
+            Tuple ahs_t = ahs_f(input);
+            Tuple bhs_t = bhs_f(input);
             output = EvaluateGetIndex(ahs_t, bhs_t);
             break;
         }
         case NodeType::SetIndex: {
             ASSUME(FunctionNodes().SizeVector() == 2, "FunctionNode SetIndex must store two elements!");
-            Function ahs_f = IMany::get_i_element(FunctionNodes(), 0).GetCppType<Function>("First element must be a Function!");
-            Function bhs_f = IMany::get_i_element(FunctionNodes(), 1).GetCppType<Function>("Second element must be a Function!");
+            Function ahs_f = FunctionNodes().nthElementVector(0).GetCppType<Function>("First element must be a Function!");
+            Function bhs_f = FunctionNodes().nthElementVector(1).GetCppType<Function>("Second element must be a Function!");
             Tuple ahs_t    = ahs_f(input);
             Tuple bhs_t    = bhs_f(input);
             output = EvaluateSetIndex(ahs_t, bhs_t);
             break;
         }
         case NodeType::Borrow: {
-            ASSUME(FunctionNodes().SizeVector() == 3, "FunctionNode Induct must store 3 elements!");
-            Function* top       = IMany::get_i_element(FunctionNodes(), 0).GetCppType<Function*>("[0] element must be a Function Pointer! (Top)");
-            Function shrink     = IMany::get_i_element(FunctionNodes(), 1).GetCppType<Function>("[1] element must be a Function! (shrink)");
-            Tuple basecase      = IMany::get_i_element(FunctionNodes(), 2).GetCppType<Tuple>("[2] element must be a Tuple! (basecase)");
-            output = EvaluateBorrow(input, shrink, basecase, top);
+            ASSUME(FunctionNodes().SizeVector() == 3, "FunctionNode Borrow must store 3 elements!");
+            Function top        = FunctionNodes().nthElementVector(0).GetCppType<Function>("[0] element must be a Function Pointer! (Top)");
+            Function shrink     = FunctionNodes().nthElementVector(1).GetCppType<Function>("[1] element must be a Function! (shrink)");
+            Tuple basecase      = FunctionNodes().nthElementVector(2).GetCppType<Tuple>("[2] element must be a Tuple! (basecase)");
+            output              = EvaluateBorrow(input, shrink, basecase, top);
             break;
         }
         case NodeType::LexicographicLess: {
             ASSUME(FunctionNodes().SizeVector() == 4, "FunctionNode LexicographicLess must store four elements!");
-            Function ahs_f = IMany::get_i_element(FunctionNodes(), 0).GetCppType<Function>("First element must be a Function!");
-            Function bhs_f = IMany::get_i_element(FunctionNodes(), 1).GetCppType<Function>("Second element must be a Function!");
-            Function chs_f = IMany::get_i_element(FunctionNodes(), 2).GetCppType<Function>("Third element must be a Function!");
-            Function dhs_f = IMany::get_i_element(FunctionNodes(), 3).GetCppType<Function>("Fourth element must be a Function!");
+            Function ahs_f = FunctionNodes().nthElementVector(0).GetCppType<Function>("First element must be a Function!");
+            Function bhs_f = FunctionNodes().nthElementVector(1).GetCppType<Function>("Second element must be a Function!");
+            Function chs_f = FunctionNodes().nthElementVector(2).GetCppType<Function>("Third element must be a Function!");
+            Function dhs_f = FunctionNodes().nthElementVector(3).GetCppType<Function>("Fourth element must be a Function!");
             Tuple ahs_t = ahs_f(input);
             Tuple bhs_t = bhs_f(input);
             Tuple chs_t = chs_f(input);
@@ -2145,7 +2182,7 @@ public:
         return result;
     };
     
-    //R[i] := a[i] < d[i] ? b[i] : c[i]
+    //R[i] := a[i] < b[i] ? c[i] : d[i]
     static Tuple EvaluatePointwiseLess(Tuple input_a, Tuple input_b, Tuple input_c, Tuple input_d) {
         Tuple result;
         std::unordered_set<number> shared_indices;
@@ -2163,11 +2200,11 @@ public:
             number b_val = input_b.GetNumberConst_Index(index);
             number c_val = input_c.GetNumberConst_Index(index);
             number d_val = input_d.GetNumberConst_Index(index);
-            if (a_val < d_val) {
-                result.data[index] = b_val;
-            }
-            else if (a_val >= d_val) {
+            if (a_val < b_val) {
                 result.data[index] = c_val;
+            }
+            else if (a_val >= b_val) {
+                result.data[index] = d_val;
             }
         }
         return result;
@@ -2272,20 +2309,25 @@ public:
     //Return the result of applying the "top" function to the shrunk value
     //If top returns the "true" function, can be used to create recursive calls
     //eg: A borrow node with shrinker = x - 1, and a borrow node with shrinker = x - 2, on top(x) = borrow1 + borrow2 can represent the fibonacci function
-    static Tuple EvaluateBorrow(Tuple Op1, Function shrinker, Tuple basecase, Function* top) {
+    static Tuple EvaluateBorrow(Tuple Op1, Function shrinker, Tuple basecase, Function top) {
         if (+Tuple::isZero(Op1)) {
             return basecase;
         }
         Tuple shrunk1 = shrinker(Op1);
         Tuple shrunk1Left = EvaluatePiecewiseLess(shrunk1, number(0), number(0));
-        bool isLeftNotEmpty = not + Tuple::isZero(shrunk1Left);
+        //If the left half isn't empty
+        bool isLeftNotEmpty = not Tuple::isZero(shrunk1Left);
+        //If Input << 0
         bool isNegative = +Tuple::isLess(shrunk1, number(0));
-        bool isNotSmaller = not +Tuple::isLess(shrunk1, Op1);
-        bool hasAnyNegative = not +Tuple::isZero(Function::EvaluatePointwiseLess(shrunk1, Tuple(), shrunk1, Tuple()));
+        //If Input <<= Shrunk
+        bool isNotSmaller = not Tuple::isLess(shrunk1, Op1);
+        //If Input < 0 != 0
+        bool hasAnyNegative = not Tuple::isZero(Function::EvaluatePointwiseLess(shrunk1, Tuple(), shrunk1, Tuple()));
+
         if (isLeftNotEmpty or isNegative or isNotSmaller or hasAnyNegative) {
             return basecase;
         }
-        return (*top)(shrunk1);
+        return top(shrunk1);
     }
 
     //If lessOp1 < lessOp2, return ifLess else ifNotLess
@@ -2302,102 +2344,153 @@ public:
             UNREACHABLE("Either less or not less.");
     }
 
-    std::string print_Function() {
-        if (name() != "")
+    std::string print_Function(bool is_sub = false) {
+        if (name() != "" and is_sub)
             return name();
-        switch (NodeClass())
+//        std::string id_ = to_string(id);
+        std::string id_ = "";
+        std::string return_val = "";
+        NodeType NodeTypeClass = NodeClass();
+        switch (NodeTypeClass)
         {
+        case NodeType::Uninitialized: {
+            PANIC("Print uninitialized function!");
+            UNREACHABLE("Panic");
+            return_val += "";
+            break;
+        }
         case NodeType::Constant: {
             ASSUME(FunctionNodes().SizeVector() == 1, "FunctionNode Constant must store 1 element!");
             Tuple target = FunctionNodes().pick().GetCppType<Tuple>("FunctionNode should store Tuple!");
-            return target.to_str();
+            if (+Tuple::isZero(target)) {
+                return_val += "0";
+            }
+            else if (+Tuple::hasSingleLimb(target, 0)) {
+                return_val += to_string(target.GetNumberConst_Index(0));
+            }
+            else {
+                return_val += target.to_str();
+            }
+            break;
         }
         case NodeType::PointwiseIdentity: {
             ASSUME(FunctionNodes().SizeVector() == 0, "FunctionNode Identity must store no elements!");
-            return "x";
+            return_val += "x";
+            break;
         }
         case NodeType::PointwisePlus: {
             ASSUME(FunctionNodes().SizeVector() == 2, "FunctionNode Plus must store two elements!");
-            Function lhs_f = IMany::get_i_element(FunctionNodes(), 0).GetCppType<Function>("First element must be a Function!");
-            Function rhs_f = IMany::get_i_element(FunctionNodes(), 1).GetCppType<Function>("Second element must be a Function!");
-            return std::string("(") + lhs_f.print_Function() + ") + (" + rhs_f.print_Function() + ")";
+            Function lhs_f = FunctionNodes().nthElementVector(0).GetCppType<Function>("First element must be a Function!");
+            Function rhs_f = FunctionNodes().nthElementVector(1).GetCppType<Function>("Second element must be a Function!");
+            return_val += std::string("(") + lhs_f.print_Function(true) + " + " + rhs_f.print_Function(true) + ")";
+            break;
         }
         case NodeType::PointwiseMinus: {
             ASSUME(FunctionNodes().SizeVector() == 2, "FunctionNode Minus must store two elements!");
-            Function lhs_f = IMany::get_i_element(FunctionNodes(), 0).GetCppType<Function>("First element must be a Function!");
-            Function rhs_f = IMany::get_i_element(FunctionNodes(), 1).GetCppType<Function>("Second element must be a Function!");
-            return std::string("(") + lhs_f.print_Function() + ") - (" + rhs_f.print_Function() + ")";
+            Function lhs_f = FunctionNodes().nthElementVector(0).GetCppType<Function>("First element must be a Function!");
+            Function rhs_f = FunctionNodes().nthElementVector(1).GetCppType<Function>("Second element must be a Function!");
+            return_val += std::string("(") + lhs_f.print_Function(true) + " - " + rhs_f.print_Function(true) + ")";
+            break;
         }
         case NodeType::PointwiseProduct: {
             ASSUME(FunctionNodes().SizeVector() == 2, "FunctionNode Product must store two elements!");
-            Function lhs_f = IMany::get_i_element(FunctionNodes(), 0).GetCppType<Function>("First element must be a Function!");
-            Function rhs_f = IMany::get_i_element(FunctionNodes(), 1).GetCppType<Function>("Second element must be a Function!");
-            return std::string("(") + lhs_f.print_Function() + ") * (" + rhs_f.print_Function() + ")";
+            Function lhs_f = FunctionNodes().nthElementVector(0).GetCppType<Function>("First element must be a Function!");
+            Function rhs_f = FunctionNodes().nthElementVector(1).GetCppType<Function>("Second element must be a Function!");
+            return_val += std::string("(") + lhs_f.print_Function(true) + " * " + rhs_f.print_Function(true) + ")";
+            break;
         }
         case NodeType::PointwiseQuotient: {
             ASSUME(FunctionNodes().SizeVector() == 2, "FunctionNode Quotient must store two elements!");
-            Function lhs_f = IMany::get_i_element(FunctionNodes(), 0).GetCppType<Function>("First element must be a Function!");
-            Function rhs_f = IMany::get_i_element(FunctionNodes(), 1).GetCppType<Function>("Second element must be a Function!");
-            return std::string("(") + lhs_f.print_Function() + ") / (" + rhs_f.print_Function() + ")";
+            Function lhs_f = FunctionNodes().nthElementVector(0).GetCppType<Function>("First element must be a Function!");
+            Function rhs_f = FunctionNodes().nthElementVector(1).GetCppType<Function>("Second element must be a Function!");
+            return_val += std::string("(") + lhs_f.print_Function(true) + " / " + rhs_f.print_Function(true) + ")";
+            return return_val;
         }
         case NodeType::PointwiseRemainder: {
             ASSUME(FunctionNodes().SizeVector() == 2, "FunctionNode Remainder must store two elements!");
-            Function lhs_f = IMany::get_i_element(FunctionNodes(), 0).GetCppType<Function>("First element must be a Function!");
-            Function rhs_f = IMany::get_i_element(FunctionNodes(), 1).GetCppType<Function>("Second element must be a Function!");
-            return std::string("(") + lhs_f.print_Function() + ") % (" + rhs_f.print_Function() + ")";
+            Function lhs_f = FunctionNodes().nthElementVector(0).GetCppType<Function>("First element must be a Function!");
+            Function rhs_f = FunctionNodes().nthElementVector(1).GetCppType<Function>("Second element must be a Function!");
+            return_val += std::string("(") + lhs_f.print_Function(true) + " % " + rhs_f.print_Function(true) + ")";
+            return return_val;
         }
         case NodeType::PointwiseLess: {
             ASSUME(FunctionNodes().SizeVector() == 4, "FunctionNode PointwiseLess must store four elements!");
-            Function ahs_f = IMany::get_i_element(FunctionNodes(), 0).GetCppType<Function>("First element must be a Function!");
-            Function bhs_f = IMany::get_i_element(FunctionNodes(), 1).GetCppType<Function>("Second element must be a Function!");
-            Function chs_f = IMany::get_i_element(FunctionNodes(), 2).GetCppType<Function>("Third element must be a Function!");
-            Function dhs_f = IMany::get_i_element(FunctionNodes(), 3).GetCppType<Function>("Fourth element must be a Function!");
-            return std::string("(") + ahs_f.print_Function() + "[i]) < (" + bhs_f.print_Function() + "[i]) ? (" + chs_f.print_Function() + "[i]) : (" + dhs_f.print_Function() + "[i])";
+            Function ahs_f = FunctionNodes().nthElementVector(0).GetCppType<Function>("First element must be a Function!");
+            Function bhs_f = FunctionNodes().nthElementVector(1).GetCppType<Function>("Second element must be a Function!");
+            Function chs_f = FunctionNodes().nthElementVector(2).GetCppType<Function>("Third element must be a Function!");
+            Function dhs_f = FunctionNodes().nthElementVector(3).GetCppType<Function>("Fourth element must be a Function!");
+            return std::string("(") + ahs_f.print_Function(true) + " < " + bhs_f.print_Function(true) + " ? " + chs_f.print_Function(true) + " : " + dhs_f.print_Function(true) + ")" + id_;
         }
         case NodeType::PiecewiseLess: {
             ASSUME(FunctionNodes().SizeVector() == 3, "FunctionNode PiecewiseLess must store three elements!");
-            Function ahs_f = IMany::get_i_element(FunctionNodes(), 0).GetCppType<Function>("First element must be a Function!");
-            Function bhs_f = IMany::get_i_element(FunctionNodes(), 1).GetCppType<Function>("Second element must be a Function!");
-            Function chs_f = IMany::get_i_element(FunctionNodes(), 2).GetCppType<Function>("Third element must be a Function!");
-            return std::string("(i) < (") + ahs_f.print_Function() + "[0]) ? (" + bhs_f.print_Function() + "[i]) : (" + chs_f.print_Function() + "[i])";
+            Function ahs_f = FunctionNodes().nthElementVector(0).GetCppType<Function>("First element must be a Function!");
+            Function bhs_f = FunctionNodes().nthElementVector(1).GetCppType<Function>("Second element must be a Function!");
+            Function chs_f = FunctionNodes().nthElementVector(2).GetCppType<Function>("Third element must be a Function!");
+            return std::string("(") + bhs_f.print_Function(true) + " | " + ahs_f.print_Function(true) + " | " + chs_f.print_Function(true) + ")" + id_;
         }
         case NodeType::GetIndex: {
             ASSUME(FunctionNodes().SizeVector() == 2, "FunctionNode GetIndex must store two elements!");
-            Function ahs_f = IMany::get_i_element(FunctionNodes(), 0).GetCppType<Function>("First element must be a Function!");
-            Function bhs_f = IMany::get_i_element(FunctionNodes(), 1).GetCppType<Function>("Second element must be a Function!");
-            return std::string("[0: ") + bhs_f.print_Function() + "[" + ahs_f.print_Function() + "[0]]]";
+            Function ahs_f = FunctionNodes().nthElementVector(0).GetCppType<Function>("First element must be a Function!");
+            Function bhs_f = FunctionNodes().nthElementVector(1).GetCppType<Function>("Second element must be a Function!");
+            if (ahs_f.NodeClass() == NodeType::Constant) {
+                Tuple indexTuple = ahs_f.FunctionNodes().nthElementVector(0).GetCppType<Tuple>();
+                return_val = bhs_f.print_Function(true) + "[" + to_string(indexTuple.GetNumberConst_Index(0)) + "]";
+            }
+            else {
+                return_val += bhs_f.print_Function(true) + "[" + ahs_f.print_Function(true) + "]";
+            }
+            break;
         }
         case NodeType::SetIndex: {
             ASSUME(FunctionNodes().SizeVector() == 2, "FunctionNode SetIndex must store two elements!");
-            Function ahs_f = IMany::get_i_element(FunctionNodes(), 0).GetCppType<Function>("First element must be a Function!");
-            Function bhs_f = IMany::get_i_element(FunctionNodes(), 1).GetCppType<Function>("Second element must be a Function!");
-            return std::string("(i) == (") + ahs_f.print_Function() + "[0]) ? (" + bhs_f.print_Function() + "[i]) : (0)";
+            Function ahs_f = FunctionNodes().nthElementVector(0).GetCppType<Function>("First element must be a Function!");
+            Function bhs_f = FunctionNodes().nthElementVector(1).GetCppType<Function>("Second element must be a Function!");
+			if (ahs_f.NodeClass() == NodeType::Constant) {
+				Tuple t = ahs_f.FunctionNodes().nthElementVector(0).GetCppType<Tuple>();
+				number n = t.GetNumberConst_Index(0);
+				if (n == 0) {
+					return_val = bhs_f.print_Function(true);
+				}
+				else {
+					return_val = std::string("[") + to_string(n) + ": " + bhs_f.print_Function(true) + "]";
+				}
+			}
+            else {
+                return_val = std::string("[") + ahs_f.print_Function(true) + "[0]: " + bhs_f.print_Function(true) + "]";
+            }
+            break;
         }
         case NodeType::Borrow: {
             //Change, replace with "independent improper functions"
-            PANIC("Disimplement!");
-            Function* top = IMany::get_i_element(FunctionNodes(), 0).GetCppType<Function*>("[0] element must be a Function! (Top)");
-            Function shrink = IMany::get_i_element(FunctionNodes(), 1).GetCppType<Function>("[1] element must be a Function! (shrink)");
-            Tuple basecase = IMany::get_i_element(FunctionNodes(), 2).GetCppType<Tuple>("[2] element must be a Tuple! (basecase)");
-            std::string top_name = (top->name() == "" ? "top" : top->name());
-            return top_name + "(" + shrink.print_Function() + ")";
+            //PANIC("Disimplement!");
+            Function top = FunctionNodes().nthElementVector(0).GetCppType<Function>("[0] element must be a Function! (Top)");
+            Function shrink = FunctionNodes().nthElementVector(1).GetCppType<Function>("[1] element must be a Function! (shrink)");
+            Tuple basecase = FunctionNodes().nthElementVector(2).GetCppType<Tuple>("[2] element must be a Tuple! (basecase)");
+            std::string top_name = (top.name() == "" ? "top" + to_string(top.id) : top.name());
+            return top_name + "(" + basecase.to_str() + ", " + shrink.print_Function(true) + ")" + id_;
         }
         case NodeType::LexicographicLess: {
             ASSUME(FunctionNodes().SizeVector() == 4, "FunctionNode LexicographicLess must store four elements!");
-            Function ahs_f = IMany::get_i_element(FunctionNodes(), 0).GetCppType<Function>("First element must be a Function!");
-            Function bhs_f = IMany::get_i_element(FunctionNodes(), 1).GetCppType<Function>("Second element must be a Function!");
-            Function chs_f = IMany::get_i_element(FunctionNodes(), 2).GetCppType<Function>("Third element must be a Function!");
-            Function dhs_f = IMany::get_i_element(FunctionNodes(), 3).GetCppType<Function>("Fourth element must be a Function!");
-            return std::string("(") + ahs_f.print_Function() + ") L< (" + bhs_f.print_Function() + ") ? (" + chs_f.print_Function() + ") : (" + dhs_f.print_Function() + ")";
+            Function ahs_f = FunctionNodes().nthElementVector(0).GetCppType<Function>("First element must be a Function!");
+            Function bhs_f = FunctionNodes().nthElementVector(1).GetCppType<Function>("Second element must be a Function!");
+            Function chs_f = FunctionNodes().nthElementVector(2).GetCppType<Function>("Third element must be a Function!");
+            Function dhs_f = FunctionNodes().nthElementVector(3).GetCppType<Function>("Fourth element must be a Function!");
+            return std::string("(") + ahs_f.print_Function(true) + " << " + bhs_f.print_Function(true) + " ? " + chs_f.print_Function(true) + " : " + dhs_f.print_Function(true) + ")" + id_;
         }
         default:
             UNREACHABLE("All cases should be covered.");
             PANIC("Default Case!");
         }
+        return return_val + id_;
     }
 
-    //Structural equality
-    friend bool operator==(const Function& a, const Function& b) {
+    //Nominal equality
+    //Test if the entire set is non-recursive, if not return Unknown
+    //Then test structurally for equality
+    static IComparisonResult StructuralEquality(const Function& a, const Function& b) {
+        if (a.NodeClass() == NodeType::Borrow or b.NodeClass() == NodeType::Borrow) {
+            return IComparisonResult::ConstructUnknown();
+        }
         if (a.NodeClass() != b.NodeClass()) {
             return false;
         }
@@ -2409,6 +2502,15 @@ public:
         }
     }
 
+    //Nominal if non-recursive, identity if recursive
+    friend bool operator==(const Function& a, const Function& b) {
+        IComparisonResult x = StructuralEquality(a, b);
+        if (x.isKnown()) {
+            return (x.getBoolOrAssert("If-guard"));
+        }
+        return (a.id == b.id);
+    }
+
     number id;
     static number max_id;
 };
@@ -2418,7 +2520,9 @@ namespace std {
     {
         size_t operator()(const Tuple& x) const
         {
-            return (size_t)boost::multiprecision::abs(((x.GetNumberConst_Index(0)) ^ x.GetNumberConst_Index(1)) % (1ULL << 31));
+            using namespace boost::multiprecision;
+            using namespace std;
+            return (size_t)abs(((x.GetNumberConst_Index(0)) ^ x.GetNumberConst_Index(1)) % (1LL << 31));
         }
     };
 
@@ -2426,7 +2530,9 @@ namespace std {
     {
         size_t operator()(const Function& x) const
         {
-            return (size_t)boost::multiprecision::abs((x.id) % (1UL << 31));
+            using namespace boost::multiprecision;
+            using namespace std;
+            return (size_t)abs((x.id) % (1LL << 31));
         }
     };
 }
@@ -2481,7 +2587,7 @@ IMany retrieveManyTuples(const Tuple& a) {
         return IMany{};
     }
     //Number of tuples
-    const size_t      size = size_n.convert_to<size_t>();
+    const size_t      size = to_size_t(size_n);
     const number minHeight = Tuple::getMinHeight(a).GetNumberConst_Index(0);
     const number maxHeight = Tuple::getMaxHeight(a).GetNumberConst_Index(0);
     std::vector<Tuple> return_vector(size);
@@ -2507,7 +2613,7 @@ IMany retrieveManyTuples(const Tuple& a) {
         std::pair<number, number> index_pair = mapIndex(index);
         number nTh = index_pair.second;
         number nsIndex = index_pair.first;
-        return_vector[nTh.convert_to<size_t>()].GetNumber_Index(nsIndex) = a.GetNumberConst_Index(nTh);
+        return_vector[to_size_t(nTh)].GetNumber_Index(nsIndex) = a.GetNumberConst_Index(nTh);
     }
     IMany returnValue;
     for (const auto& x : return_vector) {
@@ -2572,101 +2678,6 @@ public:
 
 
 
-//A static assert over a tuple of integers
-//Describe equality, set-theoretic notions
-//Describe specifications with theories like N, Z, etc
-//Describe mid-end code with restrictions on Tuples and prove equivalence to specifications like N, Z, etc
-//Use proved equivalences to prove further equivalences
-/*
-* Theory example:
-* Construction of N:
-* 0 is in N
-* succ N: n is in N
-* n < succ n
-* <: irreflexive, antisymmetric, transitive
-* =: a = b iff !(a < b) and !(b < a)
-* +: a + 0 = a, succ(a) + b = succ(a + b)
-* -: c = a + b => c - a = b; c - b = a
-* *: a * 0 = 0; a * (b + c) = (a * b) + (a * c) = (b + c) * a
-* /: d = q * a + r, 0 < r < a => d / a = q, d % a = r
-*
-Implementation:
-
-For proofs:
-Use unevaluated function calls
-Transform specific subexpressions by following a general, explicit rule
-For verifying proofs, verify that the expressions transform correctly with only the general rules specified used
-Within a single proof, different variables have the same name
-The allowed transformations are decided by user specification
-
-//Basic theory logic: GST-like
-a{b} is a valid expression for all a, b with possibly zero admissions (Describes a theory a, constrained such that b accepts a)
-x == y iff for all a, b a{x} == b{y}    (if all members admitted by x are also admitted by y, x = y)
-x{a}{b}             (is the set of x that is accepted by a, and also by b)
-z.cases(a, b{c})    (Exists a z that accepts any theory, and all members of another theory)
-Implication: N exists
-Include a calculus for a single limit n->Infinity for the entire program
-Include a calculus for describing the other theories, with single-valued encoding
-
-
-
-//Define equality (reflexive, symmetric, transitive)
-new Theory Equality(lhs, rhs): {
-    Equality.addCase(lhs, lhs);
-    Equality.addCase(lhs, rhs)(rhs, lhs{=rhs});
-    Equality.addCase(lhs, rhs)(lhs, mhs{=lhs}, rhs{=mhs});
-    Equality.closeCases();
-}
-
-//Define N as a theory that is modelled by two concepts: Zero and Successor
-//Use Peano axioms
-new Theory N(Zero, Successor): {
-    N.cases(Zero, Successor(n))(n{N});                          //N accepts Zero and Successor(n) where N accepts n (only!)
-    N.Equality.addCase(Equality);                               //N1 == N2 if modelled by equality (not only!)
-    N.Equality.addCase(c, d)(a{N}{=Successor(c)}, b{N}{=Successor(d)}{=a});   //S(a) == S(b) implies a == b
-    N.Equality.closeCases();
-    Successor(n{N}) != Zero;                                    //No n{N} such that S(n) is 0
-}
-Sugar: 0 = Zero, 1 = S(Zero), 2 = S(1), ...
-
-new Theory Add;                //N is still in scope
-Add(a{N}, N.Zero) = a;         //Add may also accept eg Q or R; so add takes N instead of N takes add
-Add(a{N}, N.Successor(b{N})) = N.Successor(Add(a, b));   //a + 0 = a; a + S(b) = S(a + b);
-Sugar: a + b = Add[a, b]
-
-new Proof N.cases.independent:  //N's cases are independent, can be applied in any order
-//Prove by demonstrating that case1 != case2, case1 != case3, case2 != case3, ...
-N.cases = Zero, Successor(n{N});
-a := Zero;
-b := Successor(n{N});
-Successor(n{N}) != Zero;        //By axiom
-b != Zero;
-N.cases = a{=Zero}, b{!=Zero};  //a, b, ...
-
-
-
-TODO: Prove induction
-Idea: Prove that the set of all x for which f(x) must be satisfied is 0 and its successive closure; and that it models N
-TODO: Prove, for all x{N} and n{N}, Less accepts (n, n + 1 + x)
-Prove for all x{N} and n{N}, Less rejects (n + 1 + x, n)
-
-
-
-
-
-
-*/
-
-
-
-
-//Takes a number "depth" and returns a function
-//When depth is independent of function input, is equivalent to a proper function and can implement recursion
-//When depth can depend on function input, this can result in "tuples" with infinitely many non-zero elements, including eg f(i) = i
-//Specific action for limit depth->infinity
-//Function nodes include number_input and induct
-//Induct describes f(x+1) as something(f(x))
-//Can be called with "depth" and "input" as inputs, can be partially specialized into f(depth) to return a function
 
 
 //Optimization:
@@ -2675,16 +2686,28 @@ Prove for all x{N} and n{N}, Less rejects (n + 1 + x, n)
 //Monomorphize all variables (eg int a, b; -> int1 a; int2 b;)
 //Strengthen all theories from the end  f(int a, int b): int c := a + b -> f(int a, int b): int c(a + b)
 //Delay all computation "production" until "consumption" in the sequence
+//Weaken all theories to only match requirements from the "next" node
 
 //Purify pass:
-//The "full type" of a function is the equivalence class of all functions that produce the same output given the same input
-//Strength reduction to for(i = ...; i != ...; i++) { /*No i*/; }
+//The "full type" of a function is the equivalence class of all functions that produce the same output given the same inputs
+//Strength reduction of loops to for(i = ...; i != ...; i++) { /*No i*/; }
 //Eliminate all bounded recursion with monomorphization (ie f(3, a) = f(2, b) + c becomes f_3(a) = f_2(b) + c)
-//  Transform to non-recursive and with basecases
+//  Transform to non-recursive functions with basecases
 //Merge all unbounded loops program-wide into a single unbounded loop with a single inductor+local variables
-//  (ie convert generate(x): co_return next x; generate(y): co_return next y; generate(z): generate(x) generate(y) co_return next z;
+//  eg convert 
+//      generate(x):
+//          co_return next x;
+//      generate(y):
+//          co_return next y;
+//      generate(z):
+//          generate(x);
+//          generate(y);
+//          co_return next z;
 //      to
-//      generate(z): x++; y++; co_return next z;)
+//      generate(z):
+//          next x;
+//          next y;
+//          co_return next z;
 
 //Search pass: (Opposites)
 //Monomorphize function calls <-> deduplicate ("template-ize") function calls
@@ -2695,6 +2718,14 @@ Prove for all x{N} and n{N}, Less rejects (n + 1 + x, n)
 //  f(a)
 // to/from
 //  f(b + c)
+
+//Representation pass:
+//Represent theories with restrictions on Tuples (ie f[input] = fixed)
+//Solve for theory representations by solving (f[input] = fixed)
+// Functions with multiple inputs (by tying multiple inputs together)
+// Functions that are partially applied are functions with some inputs specified
+// 
+//Brute force equivalence class relations with (f[input, equivalence] = fixed)
 
 //Builds a Function from C++ code
 class FunctionBuilder {
@@ -2714,14 +2745,33 @@ public:
         FunctionLexicographicLess, //Build expression a L< b ? c : d
         FunctionGetIndex,          //Build Result[0] = a[b[0]]
         FunctionSetIndex,       //Build Result[a[0]] = b[0]
-        FunctionBorrow,         //Build recursive call
-        BorrowFromNode,         //The node that is borrowed from
-        CallFunctionNode,       //Calls a predefined function
-    } FunctionBuilderNode;
+        FunctionBorrowedNode,   //Build recursive call
+        UnsetBorrowFromNode,         //The node that is borrowed from
+        SetBorrowFrom,          //A "borrow from" node that is set to another function
+        CallFunctionNode,       //Calls a prebuilt function
+    };
 
     number builder_id = 0;
     static number max_builder_id;
     static std::unordered_map<number, IMany> data_static;
+    static std::unordered_map<number, FunctionBuilderNodeTypes> node_types;
+    static std::unordered_map<number, std::string> names;
+
+    FunctionBuilderNodeTypes& FunctionBuilderNode() {
+        if (not node_types.contains(builder_id)) {
+            node_types[builder_id] = FunctionBuilderNodeTypes::Uninitialized;
+        }
+
+        return node_types[builder_id];
+    }
+
+    const FunctionBuilderNodeTypes& FunctionBuilderNode() const {
+        if (not node_types.contains(builder_id)) {
+            node_types[builder_id] = FunctionBuilderNodeTypes::Uninitialized;
+        }
+
+        return node_types[builder_id];
+    }
 
     IMany& data() {
         return data_static[builder_id];
@@ -2731,59 +2781,62 @@ public:
         return data_static[builder_id];
     }
 
-    static bool isNotUninitialized(FunctionBuilder S) {
-        if (S.FunctionBuilderNode == FunctionBuilderNodeTypes::Uninitialized)
-            return not true;
-        else if (S.FunctionBuilderNode != FunctionBuilderNodeTypes::Uninitialized)
-            return not false;
+    std::string& name() {
+        return names[builder_id];
+    }
+
+    const std::string& name() const {
+        return names[builder_id];
+    }
+
+    static bool isNotUninitialized(const FunctionBuilder S) {
+        if (S.FunctionBuilderNode() == FunctionBuilderNodeTypes::Uninitialized)
+            return false;
+        else if (S.FunctionBuilderNode() != FunctionBuilderNodeTypes::Uninitialized)
+            return true;
         UNREACHABLE("True or not true");
         return {};
     }
 
     FunctionBuilder() {
-        FunctionBuilderNode = FunctionBuilderNodeTypes::Uninitialized;
         builder_id = ++max_builder_id;
-        IMany data_x;
-        data() = data_x;
-        ASSERT(IMany::CompareVector(data(), data_static[builder_id]), "Just added element!");
+        FunctionBuilderNode() = FunctionBuilderNodeTypes::Uninitialized;
+        data().clear();
+        name() = "";
     }
 
-    FunctionBuilder(Tuple T) {
-        FunctionBuilder();
-        FunctionBuilderNode = FunctionBuilderNodeTypes::ConstantTerminal;
+    FunctionBuilder(Tuple T): FunctionBuilder() {
+        FunctionBuilderNode() = FunctionBuilderNodeTypes::ConstantTerminal;
         data().InsertTypeEnd(T);
     }
 
-    FunctionBuilder(number n) {
-        FunctionBuilder();
-        FunctionBuilderNode = FunctionBuilderNodeTypes::ConstantTerminal;
+    FunctionBuilder(number n): FunctionBuilder() {
+        FunctionBuilderNode() = FunctionBuilderNodeTypes::ConstantTerminal;
         data().InsertTypeEnd(Tuple(n));
     }
 
-    FunctionBuilder(Function F) {
-        FunctionBuilder();
-        FunctionBuilderNode = FunctionBuilderNodeTypes::CallFunctionNode;
+    FunctionBuilder(Function F) : FunctionBuilder() {
+        FunctionBuilderNode() = FunctionBuilderNodeTypes::CallFunctionNode;
         data().InsertTypeEnd(F);
     }
 
-    template<std::integral Int>
-    FunctionBuilder(Int i) {
-        FunctionBuilder();
-        FunctionBuilderNode = FunctionBuilderNodeTypes::ConstantTerminal;
-        data().InsertTypeEnd(Tuple(i));
+    void setName(std::string s) {
+        name() = s;
     }
 
-    static FunctionBuilder Variable() {
+    static FunctionBuilder Variable(){
         FunctionBuilder SB;
-        SB.FunctionBuilderNode = FunctionBuilderNodeTypes::VariableTerminal;
+        SB.FunctionBuilderNode() = FunctionBuilderNodeTypes::VariableTerminal;
         SB.data().clear();
         return SB;
     }
 
     static FunctionBuilder BorrowFrom() {
         FunctionBuilder SB;
-        SB.FunctionBuilderNode = FunctionBuilderNodeTypes::BorrowFromNode;
+        SB.FunctionBuilderNode() = FunctionBuilderNodeTypes::UnsetBorrowFromNode;
         SB.data().clear();
+        Function top;
+        SB.data().InsertTypeEnd(top);
         return SB;
     }
 
@@ -2794,9 +2847,9 @@ public:
         FunctionBuilder result;
         result.data().InsertTypeEnd<FunctionBuilder>(lhs);
         result.data().InsertTypeEnd<FunctionBuilder>(rhs);
-        result.FunctionBuilderNode = FunctionBuilderNodeTypes::FunctionPlus;
-        ASSUME(data().SizeVector() == 2, "Must have 2 elements!");
-        data().AssertAllType<FunctionBuilder>("Must have 2 FunctionBuilders!");
+        result.FunctionBuilderNode() = FunctionBuilderNodeTypes::FunctionPlus;
+        ASSUME(result.data().SizeVector() == 2, "Must have 2 elements!");
+        result.data().AssertAllType<FunctionBuilder>("Must have 2 FunctionBuilders!");
         return result;
     }
 
@@ -2807,7 +2860,7 @@ public:
         FunctionBuilder result;
         result.data().InsertTypeEnd<FunctionBuilder>(lhs);
         result.data().InsertTypeEnd<FunctionBuilder>(rhs);
-        result.FunctionBuilderNode = FunctionBuilderNodeTypes::FunctionMinus;
+        result.FunctionBuilderNode() = FunctionBuilderNodeTypes::FunctionMinus;
         return result;
     }
 
@@ -2818,7 +2871,7 @@ public:
         FunctionBuilder result;
         result.data().InsertTypeEnd<FunctionBuilder>(lhs);
         result.data().InsertTypeEnd<FunctionBuilder>(rhs);
-        result.FunctionBuilderNode = FunctionBuilderNodeTypes::FunctionProduct;
+        result.FunctionBuilderNode() = FunctionBuilderNodeTypes::FunctionProduct;
         return result;
     }
 
@@ -2829,7 +2882,7 @@ public:
         FunctionBuilder result;
         result.data().InsertTypeEnd<FunctionBuilder>(lhs);
         result.data().InsertTypeEnd<FunctionBuilder>(rhs);
-        result.FunctionBuilderNode = FunctionBuilderNodeTypes::FunctionQuotient;
+        result.FunctionBuilderNode() = FunctionBuilderNodeTypes::FunctionQuotient;
         return result;
     }
 
@@ -2840,22 +2893,26 @@ public:
         FunctionBuilder result;
         result.data().InsertTypeEnd<FunctionBuilder>(lhs);
         result.data().InsertTypeEnd<FunctionBuilder>(rhs);
-        result.FunctionBuilderNode = FunctionBuilderNodeTypes::FunctionMod;
+        result.FunctionBuilderNode() = FunctionBuilderNodeTypes::FunctionMod;
         return result;
     }
 
+    FunctionBuilder operator[](const FunctionBuilder index) const {
+        return GetIndex(index);
+    }
+
     //Build expression a[i] < b[i] ? c[i] : d[i]
-    static FunctionBuilder BuildPointwiseLess(const FunctionBuilder a, const FunctionBuilder b, const FunctionBuilder c, const FunctionBuilder d) {
-        ASSUME(isNotUninitialized(a), "Must be initialized");
-        ASSUME(isNotUninitialized(b), "Must be initialized");
-        ASSUME(isNotUninitialized(c), "Must be initialized");
-        ASSUME(isNotUninitialized(d), "Must be initialized");
+    static FunctionBuilder BuildPointwiseLess(const FunctionBuilder value, const FunctionBuilder test, const FunctionBuilder alt1, const FunctionBuilder alt2) {
+        ASSUME(isNotUninitialized(value), "Must be initialized");
+        ASSUME(isNotUninitialized(test), "Must be initialized");
+        ASSUME(isNotUninitialized(alt1), "Must be initialized");
+        ASSUME(isNotUninitialized(alt2), "Must be initialized");
         FunctionBuilder result;
-        result.data().InsertTypeEnd<FunctionBuilder>(a);
-        result.data().InsertTypeEnd<FunctionBuilder>(b);
-        result.data().InsertTypeEnd<FunctionBuilder>(c);
-        result.data().InsertTypeEnd<FunctionBuilder>(d);
-        result.FunctionBuilderNode = FunctionBuilderNodeTypes::FunctionPointwiseLess;
+        result.data().InsertTypeEnd<FunctionBuilder>(value);
+        result.data().InsertTypeEnd<FunctionBuilder>(test);
+        result.data().InsertTypeEnd<FunctionBuilder>(alt1);
+        result.data().InsertTypeEnd<FunctionBuilder>(alt2);
+        result.FunctionBuilderNode() = FunctionBuilderNodeTypes::FunctionPointwiseLess;
         return result;
     }
 
@@ -2868,22 +2925,22 @@ public:
         result.data().InsertTypeEnd<FunctionBuilder>(a);
         result.data().InsertTypeEnd<FunctionBuilder>(b);
         result.data().InsertTypeEnd<FunctionBuilder>(x);
-        result.FunctionBuilderNode = FunctionBuilderNodeTypes::FunctionPiecewiseLess;
+        result.FunctionBuilderNode() = FunctionBuilderNodeTypes::FunctionPiecewiseLess;
         return result;
     }
 
     //Build expression a < b ? c : d
-    static FunctionBuilder BuildLexicographicLess(const FunctionBuilder a, const FunctionBuilder b, const FunctionBuilder c, const FunctionBuilder d) {
-        ASSUME(isNotUninitialized(a), "Must be initialized");
-        ASSUME(isNotUninitialized(b), "Must be initialized");
-        ASSUME(isNotUninitialized(c), "Must be initialized");
-        ASSUME(isNotUninitialized(d), "Must be initialized");
+    static FunctionBuilder BuildLexicographicLess(const FunctionBuilder value, const FunctionBuilder test, const FunctionBuilder alt_1, const FunctionBuilder alt_2) {
+        ASSUME(isNotUninitialized(value), "Must be initialized");
+        ASSUME(isNotUninitialized(test), "Must be initialized");
+        ASSUME(isNotUninitialized(alt_1), "Must be initialized");
+        ASSUME(isNotUninitialized(alt_2), "Must be initialized");
         FunctionBuilder result;
-        result.data().InsertTypeEnd<FunctionBuilder>(a);
-        result.data().InsertTypeEnd<FunctionBuilder>(b);
-        result.data().InsertTypeEnd<FunctionBuilder>(c);
-        result.data().InsertTypeEnd<FunctionBuilder>(d);
-        result.FunctionBuilderNode = FunctionBuilderNodeTypes::FunctionLexicographicLess;
+        result.data().InsertTypeEnd<FunctionBuilder>(value);
+        result.data().InsertTypeEnd<FunctionBuilder>(test);
+        result.data().InsertTypeEnd<FunctionBuilder>(alt_1);
+        result.data().InsertTypeEnd<FunctionBuilder>(alt_2);
+        result.FunctionBuilderNode() = FunctionBuilderNodeTypes::FunctionLexicographicLess;
         return result;
     }
 
@@ -2895,33 +2952,53 @@ public:
         FunctionBuilder result;
         result.data().InsertTypeEnd<FunctionBuilder>(lhs);
         result.data().InsertTypeEnd<FunctionBuilder>(index);
-        result.FunctionBuilderNode = FunctionBuilderNodeTypes::FunctionGetIndex;
+        result.FunctionBuilderNode() = FunctionBuilderNodeTypes::FunctionGetIndex;
         return result;
     }
 
     //Build Expression result[index[0]] = lhs[0]
-    FunctionBuilder NewSetIndex(const FunctionBuilder index) const {
+    FunctionBuilder SetIndex(const FunctionBuilder index) const {
         const FunctionBuilder& lhs = *this;
         ASSUME(isNotUninitialized(lhs), "Must be initialized");
         ASSUME(isNotUninitialized(index), "Must be initialized");
         FunctionBuilder result;
         result.data().InsertTypeEnd<FunctionBuilder>(lhs);
         result.data().InsertTypeEnd<FunctionBuilder>(index);
-        result.FunctionBuilderNode = FunctionBuilderNodeTypes::FunctionSetIndex;
+        result.FunctionBuilderNode() = FunctionBuilderNodeTypes::FunctionSetIndex;
         return result;
     }
 
-    //Build Expression result[index[0]] = lhs[0]
-    FunctionBuilder operator()(const FunctionBuilder shrink, const FunctionBuilder basecase) const {
-        const FunctionBuilder& top = *this;
-        ASSUME(isNotUninitialized(top), "Must be initialized!");
-        ASSUME(isNotUninitialized(basecase), "Must be initialized");
+    class IntTuple {
+        Tuple T;
+    public:
+        IntTuple(Tuple T) : T(T) {}
+
+        IntTuple(number n): T(n) {}
+        template<std::integral Int>
+        IntTuple(Int n) : T(number(n)){}
+        operator Tuple() const { return T; }
+
+        IntTuple(std::initializer_list<number> l) {
+            auto l_iterator = l.begin();
+            for (int i = 0; l_iterator != l.end(); i++, l_iterator++) {
+                T.data[i] = *l_iterator;
+            }
+        }
+    };
+
+    FunctionBuilder(IntTuple i) : FunctionBuilder() {
+        FunctionBuilderNode() = FunctionBuilderNodeTypes::ConstantTerminal;
+        data().InsertTypeEnd(Tuple(i));
+    }
+
+    //Build Expression FunctionBorrowedNode
+    FunctionBuilder operator()(const FunctionBuilder shrink, const IntTuple basecase) const {
         ASSUME(isNotUninitialized(shrink), "Must be initialized");
         FunctionBuilder result;
-        result.data().InsertTypeEnd<FunctionBuilder>(top);
-        result.data().InsertTypeEnd<FunctionBuilder>(basecase);
+        result.data().InsertTypeEnd<FunctionBuilder>(*this);
         result.data().InsertTypeEnd<FunctionBuilder>(shrink);
-        result.FunctionBuilderNode = FunctionBuilderNodeTypes::FunctionSetIndex;
+        result.data().InsertTypeEnd<Tuple>(basecase);
+        result.FunctionBuilderNode() = FunctionBuilderNodeTypes::FunctionBorrowedNode;
         return result;
     }
 
@@ -2934,47 +3011,38 @@ public:
     }
 
     friend IComparisonToBool operator==(const FunctionBuilder& a, const FunctionBuilder& b) {
-        if (a.FunctionBuilderNode != b.FunctionBuilderNode)
+        if (a.builder_id != b.builder_id)
             return false;
-        else if (+IMany::CompareVector(a.data(), b.data()))
-            return false;
-        else
+        else if (a.builder_id == b.builder_id)
             return true;
+        UNREACHABLE("operator==");
     }
 
-    //Sets a borrowed-from node to a non borrowed-from node
-    void setBorrowed(const FunctionBuilder& F) {
-        number x = builder_id;
-        ASSUME(  FunctionBuilderNode == FunctionBuilderNodeTypes::BorrowFromNode, "Can only set Borrowed-from nodes!");
-        ASSUME(F.FunctionBuilderNode != FunctionBuilderNodeTypes::BorrowFromNode, "Cannot set to Borrowed-from nodes!");
-        FunctionBuilderNode = F.FunctionBuilderNode;
-        data() = F.data();
-        ASSUME(FunctionBuilderNode != FunctionBuilderNodeTypes::BorrowFromNode, "Can not set Borrowed-from nodes!");
-        ASSUME(builder_id == x, "builder_id should not change!");
+    void operator^=(const FunctionBuilder& F) {
+        setBorrowed(F);
     }
 
-    //returns a function that can evaluate the constructed builder
+    //Returns a function that can evaluate the constructed builder
     Function buildFunction() const {
-        switch (FunctionBuilderNode)
+        Function return_value;
+        switch (FunctionBuilderNode())
         {
-        case FunctionBuilder::FunctionBuilderNodeTypes::Uninitialized:
+        case FunctionBuilder::FunctionBuilderNodeTypes::Uninitialized: {
             PANIC("Uninitialized!");
             return {};
+        }
         case FunctionBuilder::FunctionBuilderNodeTypes::ConstantTerminal: {
-            Function return_value;
             ASSERT(data().SizeVector() == 1, "Expecting 1 element!");
             Tuple ConstantValue = data().pick().GetCppType<Tuple>();
             return_value.SetConstant(ConstantValue);
-            return return_value;
+            break;
         }
         case FunctionBuilder::FunctionBuilderNodeTypes::VariableTerminal: {
-            Function return_value;
             ASSERT(data().SizeVector() == 0, "Expecting no element!");
             return_value.SetIdentity();
-            return return_value;
+            break;
         }
         case FunctionBuilder::FunctionBuilderNodeTypes::FunctionPlus: {
-            Function return_value;
             ASSERT(data().SizeVector() == 2, "Expecting 2 elements!");
             data().AssertAllType<FunctionBuilder>("Expecting 2 FunctionBuilders!");
             IAny a1 = data().nthElementVector(0);
@@ -2982,101 +3050,117 @@ public:
             Function F1 = FB1.buildFunction();
             Function F2 = data().nthElementVector(1).GetCppType<FunctionBuilder>().buildFunction();
             return_value.SetAddFunction(F1, F2);
-            return return_value;
+            break;
         }
         case FunctionBuilder::FunctionBuilderNodeTypes::FunctionMinus: {
-            Function return_value;
             ASSERT(data().SizeVector() == 2, "Expecting 2 elements!");
             Function F1 = data().nthElementVector(0).GetCppType<FunctionBuilder>().buildFunction();
             Function F2 = data().nthElementVector(1).GetCppType<FunctionBuilder>().buildFunction();
             return_value.SetSubtractFunction(F1, F2);
-            return return_value;
+            break;
         }
         case FunctionBuilder::FunctionBuilderNodeTypes::FunctionProduct: {
-            Function return_value;
             ASSERT(data().SizeVector() == 2, "Expecting 2 elements!");
             Function F1 = data().nthElementVector(0).GetCppType<FunctionBuilder>().buildFunction();
             Function F2 = data().nthElementVector(1).GetCppType<FunctionBuilder>().buildFunction();
             return_value.SetProductFunction(F1, F2);
-            return return_value;
+            break;
         }
         case FunctionBuilder::FunctionBuilderNodeTypes::FunctionQuotient: {
-            Function return_value;
             ASSERT(data().SizeVector() == 2, "Expecting 2 elements!");
             Function F1 = data().nthElementVector(0).GetCppType<FunctionBuilder>().buildFunction();
             Function F2 = data().nthElementVector(1).GetCppType<FunctionBuilder>().buildFunction();
             return_value.SetQuotientFunction(F1, F2);
-            return return_value;
+            break;
         }
         case FunctionBuilder::FunctionBuilderNodeTypes::FunctionMod: {
-            Function return_value;
             ASSERT(data().SizeVector() == 2, "Expecting 2 elements!");
             Function F1 = data().nthElementVector(0).GetCppType<FunctionBuilder>().buildFunction();
             Function F2 = data().nthElementVector(1).GetCppType<FunctionBuilder>().buildFunction();
             return_value.SetRemainderFunction(F1, F2);
-            return return_value;
+            break;
         }
         case FunctionBuilder::FunctionBuilderNodeTypes::FunctionPointwiseLess: {
-            Function return_value;
             ASSERT(data().SizeVector() == 4, "Expecting 4 elements!");
-            Function F0 = data().nthElementVector(0).GetCppType<FunctionBuilder>().buildFunction();
-            Function F1 = data().nthElementVector(1).GetCppType<FunctionBuilder>().buildFunction();
-            Function F2 = data().nthElementVector(2).GetCppType<FunctionBuilder>().buildFunction();
-            Function F3 = data().nthElementVector(3).GetCppType<FunctionBuilder>().buildFunction();
-            return_value.SetPointwiseLess(F0, F1, F2, F3);
-            return return_value;
+            Function value = data().nthElementVector(0).GetCppType<FunctionBuilder>().buildFunction();
+            Function test = data().nthElementVector(1).GetCppType<FunctionBuilder>().buildFunction();
+            Function alt_1 = data().nthElementVector(2).GetCppType<FunctionBuilder>().buildFunction();
+            Function alt_2 = data().nthElementVector(3).GetCppType<FunctionBuilder>().buildFunction();
+            return_value.SetPointwiseLess(value, test, alt_1, alt_2);
+            break;
         }
         case FunctionBuilder::FunctionBuilderNodeTypes::FunctionPiecewiseLess: {
-            Function return_value;
             ASSERT(data().SizeVector() == 3, "Expecting 3 elements!");
             Function F0 = data().nthElementVector(0).GetCppType<FunctionBuilder>().buildFunction();
             Function F1 = data().nthElementVector(1).GetCppType<FunctionBuilder>().buildFunction();
             Function F2 = data().nthElementVector(2).GetCppType<FunctionBuilder>().buildFunction();
             return_value.SetPiecewiseLess(F0, F1, F2);
-            return return_value;
+            break;
         }
         case FunctionBuilder::FunctionBuilderNodeTypes::FunctionLexicographicLess: {
-            Function return_value;
             ASSERT(data().SizeVector() == 4, "Expecting 4 elements!");
             Function F0 = data().nthElementVector(0).GetCppType<FunctionBuilder>().buildFunction();
             Function F1 = data().nthElementVector(1).GetCppType<FunctionBuilder>().buildFunction();
             Function F2 = data().nthElementVector(2).GetCppType<FunctionBuilder>().buildFunction();
             Function F3 = data().nthElementVector(3).GetCppType<FunctionBuilder>().buildFunction();
             return_value.SetLexicographicLess(F0, F1, F2, F3);
-            return return_value;
+            break;
         }
         case FunctionBuilder::FunctionBuilderNodeTypes::FunctionGetIndex: {
-            Function return_value;
             ASSERT(data().SizeVector() == 2, "Expecting 2 elements!");
-            Function F0 = data().nthElementVector(0).GetCppType<FunctionBuilder>().buildFunction();
-            Function F1 = data().nthElementVector(1).GetCppType<FunctionBuilder>().buildFunction();
-            return_value.SetGetIndex(F0, F1);
-            return return_value;
+            Function tuple = data().nthElementVector(0).GetCppType<FunctionBuilder>().buildFunction();
+            Function index = data().nthElementVector(1).GetCppType<FunctionBuilder>().buildFunction();
+            return_value.SetGetIndex(index, tuple);
+            break;
         }
         case FunctionBuilder::FunctionBuilderNodeTypes::FunctionSetIndex: {
-            Function return_value;
-            ASSERT(data().SizeVector() == 2, "Expecting 2 elements!");
-            Function F0 = data().nthElementVector(0).GetCppType<FunctionBuilder>().buildFunction();
-            Function F1 = data().nthElementVector(1).GetCppType<FunctionBuilder>().buildFunction();
-            return_value.SetSetIndex(F0, F1);
-            return return_value;
+            ASSERT(data().SizeVector() == 2, ((std::string)"Expecting 2 elements! Found: " + std::to_string(data().SizeVector())).c_str());
+            Function tuple = data().nthElementVector(0).GetCppType<FunctionBuilder>().buildFunction();
+            Function index = data().nthElementVector(1).GetCppType<FunctionBuilder>().buildFunction();
+            return_value.SetSetIndex(index, tuple);
+            break;
         }
-        case FunctionBuilder::FunctionBuilderNodeTypes::FunctionBorrow: {
-            Function return_value;
+        case FunctionBuilder::FunctionBuilderNodeTypes::FunctionBorrowedNode: {
+            //Construct the BorrowNode
             ASSERT(data().SizeVector() == 3, "Expecting 3 elements!");
-            Function F0 = data().nthElementVector(0).GetCppType<FunctionBuilder>().buildFunction();
-            Tuple    F1 = data().nthElementVector(1).GetCppType<Tuple>();
-            std::shared_ptr<Function> F2 = std::make_shared<Function>(data().nthElementVector(2).GetCppType<FunctionBuilder>().buildFunction());
-            return_value.SetBorrow(F0, F1, F2);
-            return return_value;
+            //Get the stored function object:
+            //Get the reference to the recursive call
+            FunctionBuilder top_builder = (data().nthElementVector(0).GetCppType<FunctionBuilder>());
+            ASSERT(top_builder.FunctionBuilderNode() == FunctionBuilderNodeTypes::SetBorrowFrom, "Must be set before construction");
+            //Retrieve the stored function object from the recursive call object
+            Function top = top_builder.data().nthElementVector(0).GetCppType<Function>();
+            Function shrink = data().nthElementVector(1).GetCppType<FunctionBuilder>().buildFunction();
+            Tuple    basecase = data().nthElementVector(2).GetCppType<Tuple>();
+            return_value.SetBorrow(shrink, basecase, top);
+            
+            //The "set" value, containing the final recursive call
+            break;
         }
-        case FunctionBuilder::FunctionBuilderNodeTypes::BorrowFromNode: {
-            PANIC("Conversion of a borrow-from node! Set it first");
+        case FunctionBuilder::FunctionBuilderNodeTypes::UnsetBorrowFromNode: {
+            PANIC("Construction of an unset borrow-from node. Must set it first");
             UNREACHABLE("Panic");
-            return {};
+            break;
+        }
+        case FunctionBuilder::FunctionBuilderNodeTypes::SetBorrowFrom: {
+            //The returned function_id must match the function_id of the stored function
+            //Get the target functionbuilder
+            FunctionBuilder target = data().nthElementVector(1).GetCppType<FunctionBuilder>();
+            //This will call the "build" on the recursive operation
+            //This call will call the switch at FunctionBuilder::FunctionBuilderNodeTypes::FunctionBorrowedNode
+            // which will receive the zeroth element of this data, which is the function constructed here
+
+            //id of return_value is this
+            return_value = data().nthElementVector(0).GetCppType<Function>();
+            
+            //values associated with return_value is this
+            //return_value.copyFunction(target.buildFunction());
+            Function target_data = target.buildFunction();
+
+            return_value.NodeClass() = target_data.NodeClass();
+            return_value.FunctionNodes() = target_data.FunctionNodes();
+            break;
         }
         case FunctionBuilder::FunctionBuilderNodeTypes::CallFunctionNode: {
-            Function return_value;
             ASSERT(data().SizeVector() == 1, "Expecting 1 elements!");
             Function F0 = data().nthElementVector(0).GetCppType<Function>();
             return F0;
@@ -3084,42 +3168,54 @@ public:
         default:
             break;
         }
+        if (name() != "")
+            return_value.name() = name();
+        return return_value;
         UNREACHABLE("Unreachable code!");
     }
 
-    void print_dbg(std::stringstream &s) {
-        if (FunctionBuilderNode == FunctionBuilderNodeTypes::VariableTerminal) {
+    std::string print_dbg() {
+        TODO;
+        std::stringstream s;
+        s << "Type: " << (int)FunctionBuilderNode() << " ";
+        if (FunctionBuilderNode() == FunctionBuilderNodeTypes::VariableTerminal) {
             s << "x";
-            return;
+            return s.str();
         }
-        else if (FunctionBuilderNode == FunctionBuilderNodeTypes::ConstantTerminal) {
+        else if (FunctionBuilderNode() == FunctionBuilderNodeTypes::ConstantTerminal) {
             s << "build: [" + data().pick().GetCppType<Tuple>().to_str() + "]";
-            return;
+            return s.str();
+        }
+        else if (FunctionBuilderNode() == FunctionBuilderNodeTypes::UnsetBorrowFromNode) {
+            s << "recurse: [" "]";
+            return s.str();
+        }
+        else if (FunctionBuilderNode() == FunctionBuilderNodeTypes::FunctionBorrowedNode) {
+            s << "recurse: [" "]";
+            return s.str();
         }
         else {
             s << "Elements: [";
-            IMany::MonoVoidFunction PrintRecursive = [&](IAny element) -> void {
+            IMany::MonoVoidFunction PrintRecursive = [&s](IAny element) -> void {
                 if (+element.HasCPPType<FunctionBuilder>()) {
-                    element.GetCppType<FunctionBuilder>("").print_dbg(s);
-                    s << ", ";
+                    s << element.GetCppType<FunctionBuilder>("").print_dbg() << ", ";
                     return;
                 }
                 else
                     return;
             };
-            s << "]";
             data().OperateElement(PrintRecursive);
-            //Everything else is unchanged, only data() is recursively transformed
-            return;
+            s << "]";
+            return s.str();
         }
     }
 
 private:
     FunctionBuilder ReplaceIdentity(const FunctionBuilder& F) const {
-        if (FunctionBuilderNode == FunctionBuilderNodeTypes::VariableTerminal) {
+        if (FunctionBuilderNode() == FunctionBuilderNodeTypes::VariableTerminal) {
             return F;
         }
-        else if (FunctionBuilderNode == FunctionBuilderNodeTypes::ConstantTerminal) {
+        else if (FunctionBuilderNode() == FunctionBuilderNodeTypes::ConstantTerminal) {
             return *this;
         }
         else {
@@ -3136,14 +3232,40 @@ private:
         }
         UNREACHABLE("If-else");
     }
+
+    //Sets a borrowed-from node to its value
+    void setBorrowed(const FunctionBuilder& F) {
+        number x = builder_id;
+        ASSUME(FunctionBuilderNode() == FunctionBuilderNodeTypes::UnsetBorrowFromNode, "Can only set Borrowed-from nodes!");
+        ASSUME(F.FunctionBuilderNode() != FunctionBuilderNodeTypes::UnsetBorrowFromNode, "Cannot set to Borrowed-from nodes!");
+        //When building it, return this function
+        //When building recursive calls to this, use this function for "top"
+        data().clear();
+        data().InsertTypeEnd<Function>(Function());
+        data().InsertTypeEnd(F);
+        FunctionBuilderNode() = FunctionBuilderNodeTypes::SetBorrowFrom;
+        ASSUME(FunctionBuilderNode() == FunctionBuilderNodeTypes::SetBorrowFrom, "It remains a recursive call!");
+        ASSUME(builder_id == x, "builder_id should not change!");
+    }
+
+    struct SetTypeOP;
+    friend struct SetType;
+public:
+    FunctionBuilder operator[](SetTypeOP S);
 };
 
 std::unordered_map<number, IMany> FunctionBuilder::data_static{};
 number FunctionBuilder::max_builder_id = 0;
+std::unordered_map<number, FunctionBuilder::FunctionBuilderNodeTypes> FunctionBuilder::node_types;
+std::unordered_map<number, std::string> FunctionBuilder::names;
+
+
+FunctionBuilder const_(FunctionBuilder::IntTuple i) {
+    return i;
+}
+
 const FunctionBuilder var_ = FunctionBuilder::Variable();
 
-
-class Pointwise;
 class PointwiseCase1;
 class PointwiseCase2;
 
@@ -3161,16 +3283,19 @@ class PointwiseCase2 {
     FunctionBuilder value;
     FunctionBuilder alt_1;
 public:
-    PointwiseCase2(PointwiseCase1 PC, FunctionBuilder alt_1);
+    PointwiseCase2(FunctionBuilder value, FunctionBuilder test, FunctionBuilder alt_1);
     friend FunctionBuilder operator||(PointwiseCase2 PC, FunctionBuilder alt_2);
 };
 
 PointwiseCase1::PointwiseCase1(FunctionBuilder value, FunctionBuilder test) : value(value), test(test) {}
-PointwiseCase2::PointwiseCase2(PointwiseCase1 PC, FunctionBuilder alt_1) : test(PC.test), value(PC.value), alt_1(alt_1) {}
+PointwiseCase2::PointwiseCase2(FunctionBuilder value, FunctionBuilder test, FunctionBuilder alt_1) : test(test), value(value), alt_1(alt_1) {}
 
-PointwiseCase2 operator||(PointwiseCase1 PC, FunctionBuilder alt_1) { return PointwiseCase2(PC, alt_1); }
-FunctionBuilder operator||(PointwiseCase2 PC, FunctionBuilder alt_2) { return FunctionBuilder::BuildPointwiseLess(PC.test, PC.value, PC.alt_1, alt_2); }
-PointwiseCase1 operator<(FunctionBuilder F, FunctionBuilder P) { return PointwiseCase1(F, P); }
+PointwiseCase2 operator||(PointwiseCase1 PC, FunctionBuilder alt_1) { return PointwiseCase2(PC.value, PC.test, alt_1); }
+FunctionBuilder operator||(PointwiseCase2 PC, FunctionBuilder alt_2) { return FunctionBuilder::BuildPointwiseLess(PC.value, PC.test, PC.alt_1, alt_2); }
+PointwiseCase1 operator<(FunctionBuilder value, FunctionBuilder test) { return PointwiseCase1(value, test); }
+PointwiseCase1 operator>(FunctionBuilder value, FunctionBuilder test) { return PointwiseCase1(test, value); }
+
+
 
 
 //alt_1 | test | alt_2
@@ -3200,7 +3325,6 @@ FunctionBuilder operator|(PiecewiseCase1 PC, FunctionBuilder alt_2) { return Fun
 PiecewiseCase1 operator|(FunctionBuilder alt_1, Piecewise index) { return PiecewiseCase1(alt_1, index); }
 
 
-class Lexicographic;
 class LexicographicCase1;
 class LexicographicCase2;
 
@@ -3209,7 +3333,7 @@ public:
     FunctionBuilder test;
     FunctionBuilder value;
 
-    LexicographicCase1(FunctionBuilder value, Lexicographic test);
+    LexicographicCase1(FunctionBuilder value, FunctionBuilder test);
     friend LexicographicCase2 operator||(LexicographicCase1 PC, FunctionBuilder alt_1);
 };
 
@@ -3218,26 +3342,32 @@ class LexicographicCase2 {
     FunctionBuilder value;
     FunctionBuilder alt_1;
 public:
-    LexicographicCase2(LexicographicCase1 PC, FunctionBuilder alt_1);
+    LexicographicCase2(FunctionBuilder value, FunctionBuilder test, FunctionBuilder alt_1);
     friend FunctionBuilder operator||(LexicographicCase2 PC, FunctionBuilder alt_2);
 };
 
-class Lexicographic {
-public:
-    Lexicographic(FunctionBuilder F);
-    friend LexicographicCase1 operator<<(FunctionBuilder F, Lexicographic P);
-    FunctionBuilder test;
+LexicographicCase1::LexicographicCase1(const FunctionBuilder value, const FunctionBuilder test) : value(value), test(test) {}
+LexicographicCase2::LexicographicCase2(const FunctionBuilder value, const FunctionBuilder test, const FunctionBuilder alt_1) : test(test), value(value), alt_1(alt_1) {}
+
+LexicographicCase2 operator||(const LexicographicCase1 PC, const FunctionBuilder alt_1) { return LexicographicCase2(PC.value, PC.test, alt_1); }
+FunctionBuilder operator||(const LexicographicCase2 PC, const FunctionBuilder alt_2) { return FunctionBuilder::BuildLexicographicLess(PC.value, PC.test, PC.alt_1, alt_2); }
+LexicographicCase1 operator<<(const FunctionBuilder value, const FunctionBuilder test) { return LexicographicCase1(value, test); }
+LexicographicCase1 operator>>(const FunctionBuilder value, const FunctionBuilder test) { return LexicographicCase1(test, value); }
+
+struct FunctionBuilder::SetTypeOP {
+    FunctionBuilder F;
+    SetTypeOP(FunctionBuilder F) : F(F) {}
 };
 
+struct SetType {
+    FunctionBuilder::SetTypeOP operator>>(FunctionBuilder F) {
+        return FunctionBuilder::SetTypeOP(F);
+    }
+} set;
 
-LexicographicCase1::LexicographicCase1(FunctionBuilder value, Lexicographic test) : value(value), test(test.test) {}
-LexicographicCase2::LexicographicCase2(LexicographicCase1 PC, FunctionBuilder alt_1) : test(PC.test), value(PC.value), alt_1(alt_1) {}
-Lexicographic::Lexicographic(FunctionBuilder F) : test(F) {}
-
-LexicographicCase2 operator||(LexicographicCase1 PC, FunctionBuilder alt_1) { return LexicographicCase2(PC, alt_1); }
-FunctionBuilder operator||(LexicographicCase2 PC, FunctionBuilder alt_2) { return FunctionBuilder::BuildLexicographicLess(PC.test, PC.value, PC.alt_1, alt_2); }
-LexicographicCase1 operator<<(FunctionBuilder F, Lexicographic P) { return LexicographicCase1(F, P); }
-
+FunctionBuilder FunctionBuilder::operator[](SetTypeOP S) {
+    return FunctionBuilder::SetIndex(S.F);
+}
 
 //If Test(x) == case_, return Value(x), else return Main(x);
 static Function CreateCase(Tuple case_, FunctionBuilder Value, FunctionBuilder Main, FunctionBuilder Test) {
@@ -3248,16 +3378,6 @@ static Function CreateCase(Tuple case_, FunctionBuilder Value, FunctionBuilder M
     return IsMore.buildFunction();
 }
 
-static Function CreateIndexConstant(Tuple T) {
-    FunctionBuilder GetIndex = var_.GetIndex(T);
-    return GetIndex.buildFunction();
-}
-
-static Function CreateAddConstant(Tuple T) {
-    FunctionBuilder Adder = var_ + T;
-    return Adder.buildFunction();
-}
-
 //base[index] = value, base[!index] = base
 static Function CreatePiecewiseAt(FunctionBuilder base, FunctionBuilder index, FunctionBuilder value) {
     //F[-Inf:Index] = base; F[Index:Index+1] = value; F[Index + 1:Infinity] = base;
@@ -3265,20 +3385,35 @@ static Function CreatePiecewiseAt(FunctionBuilder base, FunctionBuilder index, F
     return FinalResult.buildFunction();
 }
 
-
 int main() {
-    
-    //Input variable
-    FunctionBuilder in = var_ < 1 || var_ || (1 < var_ || var_ || 1);
     FunctionBuilder Fibonacci = FunctionBuilder::BorrowFrom();
-    Fibonacci.setBorrowed(Fibonacci(in - 1, 0) + Fibonacci(in - 2, 0));
-    //If in < 1 ? in : in > 1 ? in : 1
-    std::stringstream s;
-    Fibonacci.print_dbg(s);
+    FunctionBuilder FibonacciY = Fibonacci(var_ - 1, 0) + Fibonacci(var_ - 2, 0);
+    Fibonacci ^= var_ < 1 || 0 || (var_ < 2 || 1 || FibonacciY);
+    Fibonacci.name() = "Fibonacci";
     Function FibonacciF = Fibonacci.buildFunction();
-    std::cout << FibonacciF(Tuple(3)).to_str() << '\n';
+    std::cout << FibonacciF.print_Function() << '\n';
+    for (int i = 0; i < 20; i++) {
+        std::cout << FibonacciF(Tuple(i)).to_str() << '\n';
+    }
 
+    ////Ackermann Function (modified):
+    ////B(n, m, 0...)
+    ////B(x, 0...) = (x + 1, 0...)
+    ////B(x, 1, 0...) = A(0, A(1, x - 1)) = B(B(x - 1, 1), 0)
+    ////B(n, m, ...) = B(B(n - 1, m), m - 1, ...)
+    FunctionBuilder Ackermann = FunctionBuilder::BorrowFrom();
+    FunctionBuilder AckermannY0 = Ackermann(var_ - 1, 0)[0];            //Zeroth element
+    FunctionBuilder AckermannY1 = var_ - const_({0, 1});                //First element
+    FunctionBuilder AckermannY = AckermannY0 + AckermannY1[set >> 1];   //(Inner call, m - 1)
+    FunctionBuilder AckermannZ = (var_[1] < 0) || 1 || (var_[1] > 0 || AckermannY || var_ + 1);
+    Ackermann ^= Ackermann(AckermannZ, 1);
 
+    Function AckermannF = Ackermann.buildFunction();
+    std::cout << AckermannF.print_Function() << '\n';
+    for (int i = 0; i < 10; i++)
+        std::cout << AckermannF(i).to_str() << '\n';
+
+    
 
     return 0;
     //    unsigned int x = 1;
