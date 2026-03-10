@@ -3386,32 +3386,25 @@ static Function CreatePiecewiseAt(FunctionBuilder base, FunctionBuilder index, F
 }
 
 int main() {
-    FunctionBuilder Fibonacci = FunctionBuilder::BorrowFrom();
-    FunctionBuilder FibonacciY = Fibonacci(var_ - 1, 0) + Fibonacci(var_ - 2, 0);
-    Fibonacci ^= var_ < 1 || 0 || (var_ < 2 || 1 || FibonacciY);
-    Fibonacci.name() = "Fibonacci";
-    Function FibonacciF = Fibonacci.buildFunction();
-    std::cout << FibonacciF.print_Function() << '\n';
-    for (int i = 0; i < 20; i++) {
-        std::cout << FibonacciF(Tuple(i)).to_str() << '\n';
-    }
-
     ////Ackermann Function (modified):
     ////B(n, m, 0...)
     ////B(x, 0...) = (x + 1, 0...)
     ////B(x, 1, 0...) = A(0, A(1, x - 1)) = B(B(x - 1, 1), 0)
     ////B(n, m, ...) = B(B(n - 1, m), m - 1, ...)
     FunctionBuilder Ackermann = FunctionBuilder::BorrowFrom();
-    FunctionBuilder AckermannY0 = Ackermann(var_ - 1, 0)[0];            //Zeroth element
-    FunctionBuilder AckermannY1 = var_ - const_({0, 1});                //First element
-    FunctionBuilder AckermannY = AckermannY0 + AckermannY1[set >> 1];   //(Inner call, m - 1)
-    FunctionBuilder AckermannZ = (var_[1] < 0) || 1 || (var_[1] > 0 || AckermannY || var_ + 1);
-    Ackermann ^= Ackermann(AckermannZ, 1);
+    FunctionBuilder AckermannY0 = Ackermann(var_ - 1, 1);            //Zeroth element
+    FunctionBuilder AckermannY1 = var_[1] - 1;                //First element
+    FunctionBuilder AckermannY = AckermannY0[0] + AckermannY1[set >> 1];   //(Inner call, m - 1)
+    Ackermann ^= (var_[1] < 1) || var_ + 1 || Ackermann(AckermannY, 1);
 
     Function AckermannF = Ackermann.buildFunction();
     std::cout << AckermannF.print_Function() << '\n';
-    for (int i = 0; i < 10; i++)
-        std::cout << AckermannF(i).to_str() << '\n';
+    for (int m = 0; m < 4; m++) {
+        for (int n = 0; n < 5; n++) {
+            std::cout << AckermannF(FunctionBuilder::IntTuple({ n, m })).to_str() << ' ';
+        }
+        std::cout << '\n';
+    }
 
     
 
