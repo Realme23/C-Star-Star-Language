@@ -16,6 +16,8 @@
 #include <boost/leaf.hpp>
 //Parser lib
 #include <boost/spirit/home/x3.hpp>
+#include <boost/spirit/include/qi_stream.hpp>
+#include <boost/spirit/include/qi_char.hpp>
 //Expression template lib
 #include <boost/proto/proto.hpp>
 //Lazy function lib
