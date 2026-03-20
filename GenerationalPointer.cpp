@@ -1,4 +1,4 @@
-#include "GenerationalPointer.h"
+#include "generationalpointer.h"
 
 namespace c_star_star {
 	namespace pointers {

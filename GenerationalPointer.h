@@ -35,25 +35,6 @@ namespace c_star_star {
             //A < operator for inserting into ordered sets etc
             constexpr friend bool operator<(GenerationalPointer lhs, GenerationalPointer rhs);
 
-            //Retrieve the number of pointers within a given domain
-            constexpr static size_t CheckDomain(uint64_t domain);
-
-            //Create a new GenerationalPointer and perform all the associations necessary
-            template<typename... Q>
-            constexpr static GenerationalPointer MakeNewGenerationalT(uint64_t domain = 0, Q... q...);
-
-            //Verify that the generation is valid, return bool
-            constexpr static bool CheckGeneration(GenerationalPointer GP);
-
-            //Panic if the generation check does not return true
-            constexpr static void PanicCheckGeneration(GenerationalPointer GP);
-
-            //Delete a pointer
-            constexpr static void DeleteNewGenerationalT(GenerationalPointer GP);
-
-            //Try to erase if the generation checks pass, return true on success
-            constexpr static bool TryErase(GenerationalPointer GP);
-
             //Dereference after a panic check
             constexpr T& operator*();
 
@@ -71,5 +52,28 @@ namespace c_star_star {
             //Delete the raw pointer
             constexpr static void DeleteRaw(GenerationalPointer GP);
         };
+
+        //Retrieve the number of pointers within a given domain
+        constexpr static size_t CheckDomain(uint64_t domain);
+
+        //Create a new GenerationalPointer and perform all the associations necessary
+        template<typename T, typename... Q>
+        constexpr static GenerationalPointer<T> MakeNewGenerationalT(uint64_t domain = 0, Q... q...);
+
+        //Verify that the generation is valid, return bool
+        template<typename T>
+        constexpr static bool CheckGeneration(GenerationalPointer<T> GP);
+
+        //Panic if the generation check does not return true
+        template<typename T>
+        constexpr static void PanicCheckGeneration(GenerationalPointer<T> GP);
+
+        //Delete a pointer
+        template<typename T>
+        constexpr static void DeleteNewGenerationalT(GenerationalPointer<T> GP);
+
+        //Try to erase if the generation checks pass, return true on success
+        template<typename T>
+        constexpr static bool TryErase(GenerationalPointer<T> GP);
     }
 }

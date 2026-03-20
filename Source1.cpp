@@ -1,6 +1,6 @@
 
-#include "Source1.h"
-#include "GenerationalPointer.h"
+#include "source1.h"
+#include "generationalpointer.h"
 
 //TODOs:
 //Remove all IManys after prototyping
@@ -21,16 +21,16 @@
 class IComparisonResult {
 public:
     //Default construct: set to unknown
-    IComparisonResult() : _isTrue(false), _isFilled(false) {
+    constexpr IComparisonResult() : _isTrue(false), _isFilled(false) {
         ASSUME(isUnknown(), "Default constructed IComparisonResults must be unknown.");
     }
     //Value construct: set to a bool
-    IComparisonResult(const bool value) : _isTrue(value), _isFilled(true) {
+    constexpr IComparisonResult(const bool value) : _isTrue(value), _isFilled(true) {
         ASSUME(_isFilled == true, "Value constructed IComparisonResults must be known.");
         ASSUME(_isTrue == value, "Value constructed IComparisonResults must be constructed to correct value.");
     }
     //Set to a bool value, is not unknown after being set
-    void setBool(const bool value) {
+    constexpr void setBool(const bool value) {
         _isTrue = value;
         _isFilled = true;
 
@@ -38,27 +38,27 @@ public:
         ASSUME(_isTrue == value, "Must construct to specified value.");
     }
     //Set the value to true
-    void setTrue() {
+    constexpr void setTrue() {
         setBool(true);
 
         ASSUME(_isFilled == true, "Must construct to known value.");
         ASSUME(_isTrue == true, "Must construct to known true.");
     }
     //Set the value to false
-    void setFalse() {
+    constexpr void setFalse() {
         setBool(false);
 
         ASSUME(_isFilled == true, "Must construct to known value.");
         ASSUME(_isTrue == false, "Must construct to false.");
     }
     //Set to unknown
-    void setUnknown() {
+    constexpr void setUnknown() {
         _isFilled = false;
 
         ASSUME(_isFilled == false, "Must construct to unknown.");
     }
     //Check if it is not unknown
-    bool isKnown() const {
+    constexpr bool isKnown() const {
         bool return_value = _isFilled;
         if (return_value == true) {
             ASSUME(_isFilled == true, "Must be a filled value.");
@@ -66,7 +66,7 @@ public:
         return return_value;
     }
     //Check if it is a specific bool (Return false if unknown)
-    bool isBool(bool b) const {
+    constexpr bool isBool(bool b) const {
         bool return_value = isKnown() && (b == _isTrue);
         if (return_value == true) {
             ASSUME(_isFilled == true, "isBool() should imply filled.");
@@ -74,7 +74,7 @@ public:
         return return_value;
     }
     //Check if it is true (Return false if unknown)
-    bool isTrue() const {
+    constexpr bool isTrue() const {
         bool return_value = isKnown() && isBool(true);
         if (return_value == true) {
             ASSUME(_isFilled == true, "True should imply filled.");
@@ -82,7 +82,7 @@ public:
         return return_value;
     }
     //Check if it is false (Return false if unknown)
-    bool isFalse() const {
+    constexpr bool isFalse() const {
         bool return_value = isKnown() && isBool(false);
         if (return_value == true) {
             ASSUME(_isFilled == true, "False should imply filled.");
@@ -90,15 +90,15 @@ public:
         return return_value;
     }
     //Check if it is unknown
-    bool isUnknown() const {
-        bool return_value = !isKnown();
+    constexpr bool isUnknown() const {
+        bool return_value = not isKnown();
         if (return_value == true) {
             ASSUME(_isFilled == false, "isUnknown() should not imply isKnown().");
         }
         return return_value;
     }
     //Get either the stored boolean, or a fallback value
-    bool getBoolOr(const bool b) const { 
+    constexpr bool getBoolOr(const bool b) const {
         bool return_value;
         if (isKnown())
             return_value = isTrue();
@@ -109,18 +109,18 @@ public:
         return return_value;
     }
     //Get the stored boolean, or throw an error
-    bool getBoolOrAssert(const std::string& error) const {
+    constexpr bool getBoolOrAssert(const std::string& error) const {
         ASSUME(isKnown(), ("Boolean must be known at this point: " + error).c_str());
         return isTrue();
     }
 
     //Get bool or assert
-    bool operator+() const {
+    constexpr bool operator+() const {
         return getBoolOrAssert("Conversion to bool operator called!");
     }
 
     //Compare with another IComparisonResult variable (propagate unknown)
-    static IComparisonResult Compare(const IComparisonResult& lhs, const IComparisonResult& rhs) {
+    constexpr static IComparisonResult Compare(const IComparisonResult& lhs, const IComparisonResult& rhs) {
         if (lhs.isUnknown() or rhs.isUnknown())
             return ConstructUnknown();
         else if (+lhs == +rhs)
@@ -132,7 +132,7 @@ public:
     }
 
     //Construct a IComparisonResult from a bool
-    static IComparisonResult ConstructBool(const bool b) {
+    constexpr static IComparisonResult ConstructBool(const bool b) {
         IComparisonResult return_value;
         return_value.setBool(b);
 
@@ -141,8 +141,9 @@ public:
         
         return return_value;
     }
+
     //Construct a IComparisonResult to "Unknown"
-    static IComparisonResult ConstructUnknown() {
+    constexpr static IComparisonResult ConstructUnknown() {
         IComparisonResult return_value;
         return_value.setUnknown();
 
@@ -154,7 +155,7 @@ public:
     }
 
     //The "negative" of the Comparison Result; true <-> false, unknown -> unknown
-    IComparisonResult Negation() const {
+    constexpr IComparisonResult Negation() const {
         IComparisonResult return_value;
         if (isUnknown())
             return_value = ConstructUnknown();
@@ -176,7 +177,7 @@ public:
     }
 
     //Call a generic bool + bool -> bool function on the stored types
-    static IComparisonResult WrapUnknownsOP(const IComparisonResult& lhs, const IComparisonResult& rhs, bool function(bool, bool)) {
+    constexpr static IComparisonResult WrapUnknownsOP(const IComparisonResult& lhs, const IComparisonResult& rhs, bool function(bool, bool)) {
         IComparisonResult return_value;
         ASSUME(function != nullptr, "Provided function must not be empty!");
         if (lhs.isUnknown() or rhs.isUnknown())
@@ -195,7 +196,7 @@ private:
     bool _isTrue;
     bool _isFilled;
 };
-bool operator==(const IComparisonResult& lhs, const IComparisonResult& rhs) {
+constexpr bool operator==(const IComparisonResult& lhs, const IComparisonResult& rhs) {
     return +IComparisonResult::Compare(lhs, rhs);
 }
 
@@ -204,53 +205,48 @@ bool operator==(const IComparisonResult& lhs, const IComparisonResult& rhs) {
 //Asserts if unknown is implicitly converted
 class IComparisonToBool {
 public:
-    operator bool() const { return Result.getBoolOrAssert("IComparisonToBool implicitly converted."); }
-    operator IComparisonResult() const { return Result; }
-    IComparisonToBool(const bool value) : Result(value) {}
-    IComparisonToBool(const IComparisonResult value) : Result(value) {}
+    constexpr operator bool() const { return Result.getBoolOrAssert("IComparisonToBool implicitly converted."); }
+    constexpr operator IComparisonResult() const { return Result; }
+    constexpr IComparisonToBool(const bool value) : Result(value) {}
+    constexpr IComparisonToBool(const IComparisonResult value) : Result(value) {}
 
-    IComparisonResult getIComparisonResult() const { return Result; }
+    constexpr IComparisonResult getIComparisonResult() const { return Result; }
 private:
     IComparisonResult Result;
 };
 
 //Boolean operators, unknown-propagating
 //Boolean negation
-IComparisonToBool operator!(const IComparisonResult& operand) { 
+constexpr IComparisonToBool operator!(const IComparisonResult& operand) {
     return operand.Negation();
 }
-IComparisonToBool operator!(const IComparisonToBool& operand) {
+constexpr IComparisonToBool operator!(const IComparisonToBool& operand) {
     return !operand.getIComparisonResult();
 }
 //Boolean and
-IComparisonToBool operator&&(const IComparisonResult& lhs, const IComparisonResult& rhs) {
+constexpr IComparisonToBool operator&&(const IComparisonResult& lhs, const IComparisonResult& rhs) {
     return IComparisonResult::WrapUnknownsOP(lhs, rhs, [](bool a, bool b) { return a and b; });
 }
-IComparisonToBool operator&&(const IComparisonToBool& lhs, const IComparisonToBool& rhs) {
+constexpr IComparisonToBool operator&&(const IComparisonToBool& lhs, const IComparisonToBool& rhs) {
     return lhs.getIComparisonResult() and rhs.getIComparisonResult();
-}
-//Coercing comparison
-//Used in asserts
-bool operator&&(const IComparisonToBool& lhs, const char*) {
-    return +lhs.getIComparisonResult();
 }
 
 //Boolean or
-IComparisonToBool operator||(const IComparisonResult& lhs, const IComparisonResult& rhs) {
+constexpr IComparisonToBool operator||(const IComparisonResult& lhs, const IComparisonResult& rhs) {
     return IComparisonResult::WrapUnknownsOP(lhs, rhs, [](bool a, bool b) { return a or b; });
 }
-IComparisonToBool operator||(const IComparisonToBool& lhs, const IComparisonToBool& rhs) {
+constexpr IComparisonToBool operator||(const IComparisonToBool& lhs, const IComparisonToBool& rhs) {
     return lhs.getIComparisonResult() or rhs.getIComparisonResult();
 }
 //Boolean xor
-IComparisonToBool operator^(const IComparisonResult& lhs, const IComparisonResult& rhs) {
+constexpr IComparisonToBool operator^(const IComparisonResult& lhs, const IComparisonResult& rhs) {
     return IComparisonResult::WrapUnknownsOP(lhs, rhs, [](bool a, bool b) { return a not_eq b; });
 }
-IComparisonToBool operator^(const IComparisonToBool& lhs, const IComparisonToBool& rhs) {
+constexpr IComparisonToBool operator^(const IComparisonToBool& lhs, const IComparisonToBool& rhs) {
     return lhs.getIComparisonResult() xor rhs.getIComparisonResult();
 }
 //Boolean equals comparison
-IComparisonToBool operator==(const IComparisonToBool& lhs, const IComparisonToBool& rhs) {
+constexpr IComparisonToBool operator==(const IComparisonToBool& lhs, const IComparisonToBool& rhs) {
     return lhs.getIComparisonResult() == rhs.getIComparisonResult();
 }
 
@@ -267,13 +263,13 @@ std::ostream& operator<<(std::ostream& ostream, const IComparisonResult& result)
 }
 
 
-//Is the fallback class for IAny and is in default constructed IAny
-//Always compares equal to and not-less-than to itself
-class IEmptyValue {};
-bool operator==(const IEmptyValue, const IEmptyValue) { return true; }
-bool operator<(const IEmptyValue, const IEmptyValue) { return false; }
 
-bool operator!=(const any x, const any y) { return !(x == y); }
+
+//Is the fallback class for IAny and is in default constructed IAny
+//Always compares equal to and not-less-than itself
+class IEmptyValue {};
+constexpr bool operator==(const IEmptyValue, const IEmptyValue) { return true; }
+constexpr bool operator<(const IEmptyValue, const IEmptyValue) { return false; }
 
 //A class for storing any CPP type with runtime polymorphism
 //Requires copy constructible, typeid, equality comparison and less-than comparison
@@ -3410,8 +3406,9 @@ SequenceFor for_(SequencedTerminal input, SequencedTerminal target) { return Seq
 
 int main() {
 
-    using namespace c_star_star;
-
+    using namespace c_star_star::pointers;
+    GenerationalPointer<int> x = GenerationalPointer<int>::MakeNewGenerationalT(0);
+    GenerationalPointer<int>::CheckGeneration(x);
 
     return 0;
 

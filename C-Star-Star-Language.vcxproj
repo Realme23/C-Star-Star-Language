@@ -31,8 +31,8 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Precomp.h" />
-    <ClInclude Include="Source1.h" />
-    <ClInclude Include="GenerationalPointer.h" />
+    <ClInclude Include="source1.h" />
+    <ClInclude Include="generationalPointer.h" />
   </ItemGroup>
   <PropertyGroup Label="Globals">
     <VCProjectVersion>17.0</VCProjectVersion>
