@@ -13,6 +13,9 @@
       <UniqueIdentifier>{67DA6AB6-F800-4c08-8B7A-83BB121AAD01}</UniqueIdentifier>
       <Extensions>rc;ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe;resx;tiff;tif;png;wav;mfcribbon-ms</Extensions>
     </Filter>
+    <Filter Include="Utils">
+      <UniqueIdentifier>{73fe6abc-f6de-4355-ae3d-dbf660049532}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Precomp.cpp">
@@ -21,10 +24,22 @@
     <ClCompile Include="Source1.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="GenerationalPointer.cpp">
+      <Filter>Utils</Filter>
+    </ClCompile>
+    <ClCompile Include="AssertF.cpp">
+      <Filter>Utils</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Precomp.h">
       <Filter>Source Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Source1.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="GenerationalPointer.h">
+      <Filter>Utils</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>

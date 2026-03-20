@@ -1,9 +1,6 @@
-#include "Precomp.h"
 
-#define BOOST_ENABLE_ASSERT_HANDLER 
-#include <boost/assert.hpp>
-
-
+#include "Source1.h"
+#include "GenerationalPointer.h"
 
 //TODOs:
 //Remove all IManys after prototyping
@@ -12,296 +9,11 @@
 //Change all numeric integer types to number (all indices etc)
 //  Find library that's "optimized for small case"
 //Convert everything to free functions (Add UFCS later)
-
-//Whether to enable "light/simple" asserts
-#define __ENABLE_ASSERTS 1
-//Whether to enable "heavy" asserts and the level to enable them at
-//Higher levels have slower, more assertive code
-#define __ENABLE_HEAVY_ASSERTS 5
-//Whether to enable compiler assumption hints
-#define __ENABLE_ASSUMES 0
-
-//Utilities
-//Assert, Assume and Unreachable
-//Asserts check for a boolean condition and assert (runtime) if it is not satisfied, with an error
-//Heavy asserts are selectively enabled if asserts are enabled, based on the specified "weight" of the assertion
-#define ASSERT(cond,reason) do { if(__ENABLE_ASSERTS) BOOST_ASSERT_MSG(cond, reason); } while(0)
-#define HEAVY_ASSERT(level,cond,reason) do { if(__ENABLE_ASSERTS && __ENABLE_HEAVY_ASSERTS && (__ENABLE_HEAVY_ASSERTS) > level) BOOST_ASSERT_MSG(cond, reason); } while(0)
-
-//Always fail, even with asserts disabled
-//Takes a single parameter, a message to display
-#define PANIC(...) do { BOOST_ASSERT_MSG(false, __VA_ARGS__); UNREACHABLE_C; } while(0)
-//Panics when reached, used to signal unreachable code
-//Optionally take a parameter that describes why unimplemented
-#define TODO { PANIC("Unimplemented."); }
-#define TODO_(...) { PANIC("TODO: " __VA_ARGS__); }
-
-#ifdef __cplusplus
-#if (__cplusplus > 202302L)                 //C++ 23
-#define ASSUME_C(cond,reason) do { [[assume((cond))]]; } while (0)
-#define UNREACHABLE_C std::unreachable()
-#else
-#if defined(_MSC_VER) && !defined(__clang__) // MSVC
-#define ASSUME_C(cond,reason) do { __assume((cond)); } while (0)
-#define UNREACHABLE_C __assume(0)
-#else
-#ifdef __GNUC__                              // GCC, Clang
-#define ASSUME_C(cond,reason) do { if (!(cond)) __builtin_unreachable(); } while (0)
-#define UNREACHABLE_C __builtin_unreachable()
-#else                                       //Fallback - No op
-#define ASSUME_C(cond,reason)
-#define UNREACHABLE_C
-#endif
-#endif
-#endif
-#endif
-
-#ifdef __cplusplus
-#if (__cplusplus > 202302L)
-#define IF_C if constexpr
-#else
-#define IF_C if
-#endif
-#endif
-
-
-//Compiler specific declaration of assumptions used
-//Suggested: Off in debug mode, on in release mode
-#define ASSUME(cond,reason) do { ASSERT((cond), reason); if(__ENABLE_ASSUMES) ASSUME_C(cond,reason); } while(0)
-//Compiler specific declaration of unreachability
-//Suggested: Off in debug mode, on in release mode
-#define UNREACHABLE(reason)  do { if(__ENABLE_ASSUMES) UNREACHABLE_C; else if(__ENABLE_ASSERTS) PANIC(reason); } while(0)
-//Code that only runs when asserts are enabled
-//eg Panic checks, preparations for asserts
-#define ASSERT_RUN(...) do { if(__ENABLE_ASSERTS) __VA_ARGS__; } while(0)
-//Code that only runs when heavy asserts and regular asserts are enabled
-//eg Sorting, >O(n) preparations for asserts, run and check vs naive impl
-#define HEAVY_ASSERT_RUN(level,...) do { if(__ENABLE_HEAVY_ASSERTS && __ENABLE_HEAVY_ASSERTS > level) __VA_ARGS__; } while(0)
-
-//CASES: Assert that atleast one of the following is equal to the test value
-// eg CASES(color, red, green, blue)
-//CASES_TRUE: Assert that atleast one of the following evaluates to true
-// eg CASES_TRUE(isEven(x), isOdd(x))
-//Disabled without asserts
-template<typename T, typename R>
-void CASES_FUNCTION(boost::source_location const& loc, T check_value, R cases_list) {
-    ASSUME(check_value == cases_list, ("Cases not matched! Source location: " + loc.to_string()).c_str());
-}
-
-template<typename T, typename Q, typename S>
-void CASES_FUNCTION(boost::source_location const& loc, T check_value, Q first_case, S second_case) {
-    if (check_value != first_case) {
-        CASES_FUNCTION(loc, check_value, second_case);
-    }
-    ASSUME(check_value == first_case or check_value == second_case, "Cases must be satisfied!");
-}
-
-template<typename T, typename Q, typename S, typename... R>
-void CASES_FUNCTION(boost::source_location const& loc, T check_value, Q first_case, S second_case, R... cases_list) {
-    if (check_value != first_case) {
-        CASES_FUNCTION(loc, check_value, second_case, cases_list...);
-    }
-    //ASSUME(check_value == first_case or check_value == second_case or (check_value == cases_list...), "Cases must be satisfied!");
-}
-
-template<typename... Q>
-void CASES_TRUE_FUNCTION(boost::source_location const& loc, Q... cases) {
-    CASES_FUNCTION(loc, true, cases...);
-}
-
-
-#define CASES(check_value,...) CASES_FUNCTION((BOOST_CURRENT_LOCATION), (check_value), __VA_ARGS__)
-#define CASES_TRUE(...) CASES_TRUE_FUNCTION((BOOST_CURRENT_LOCATION), __VA_ARGS__)
-
-
-//Assertion handlers
-namespace boost {
-    void assertion_failed(char const* expr, char const* function, char const* file, long line) {
-        std::cerr << "Expression \"" << expr << "\" in file " << file << " in function " << function << " on line " << line << " has failed! The program will shut down." << std::endl;
-        std::terminate();
-    }
-
-    void assertion_failed_msg(char const* expr, char const* msg, char const* function, char const* file, long line) {
-        std::cerr << "Expression \"" << expr << "\" in file " << file << " in function " << function << " on line " << line << " has failed! Reason:\n" << msg << "\nThe program will now shut down." << std::endl;
-        std::terminate();
-    }
-}
-
-
-//Type aliases
-//A multiprecision integer from boost
-
-//__SLOW_BIGNUM: Use debug adaptor (shows the value as string in debugger)
-//__FAST_BIGNUM: Use bignums but no adaptor
-//If neither: Use Signed long long
-#define __NO_BIGNUM
-#ifdef __SLOW_BIGNUM
-using number = boost::multiprecision::number<boost::multiprecision::debug_adaptor<typename boost::multiprecision::cpp_int::backend_type>, boost::multiprecision::cpp_int::et>;
-std::string to_string(number x) { return x.str(); }
-size_t to_size_t(number n) {}
-#else
-#ifdef __FAST_BIGNUM
-using number = boost::multiprecision::cpp_int;
-std::string to_string(number x) { return x.str(); }
-#else
-#ifdef __NO_BIGNUM
-using number = signed long long;
-std::string to_string(number x) { return std::to_string(x); }
-size_t to_size_t(number n) { return n; }
-#endif
-#endif
-#endif
-
-//An "any" type from boost
-//Must model reasonably pure functions, values eg (x == x, y = x => y == x, f(y) == f(x) is true) etc
-//Not expected to store eg "auto-iterating" iterators or multithreaded values
-//Must be copy constructible, equality, includes typeid_ support
-using any = boost::type_erasure::any<boost::mpl::vector<boost::type_erasure::copy_constructible<>, boost::type_erasure::typeid_<>, boost::type_erasure::equality_comparable<>, boost::type_erasure::relaxed>>;
-//Reference-safe type_id from C++ std
-using std::type_index;
-
-
-//A class to hold pointer info, for GenerationalPointers
-class PointerMaps {
-public:
-    static std::unordered_map<void*, uint64_t> generations;
-    static std::unordered_map<void*, uint64_t> domains;
-    static std::unordered_map<void*, uint64_t> domain_Generations;
-    template<typename T>
-    friend class GenerationalPointer;
-};
-
-std::unordered_map<void*, uint64_t> PointerMaps::generations;
-std::unordered_map<void*, uint64_t> PointerMaps::domains;
-std::unordered_map<void*, uint64_t> PointerMaps::domain_Generations;
-
-
-//A single-threaded generational pointer class
-//Stores a pointer and a generation number; References a static map that tracks the generation for each allocation
-//Can associate pointers with a new tag, verify eg that all pointers allocated in a single frame are deallocated by the next frame
-//Verifies the correct generation number on each deallocation and dereference
-//Template parameters: (Default = no checks)
-//Pointed-to type T
-template<typename T>
-class GenerationalPointer {
-private:
-    //Which allocation generation this address belongs to
-    uint64_t Gen = 0;
-    //The actual pointer itself
-    T* raw_ptr = nullptr;
-    //A domain associated to the pointer, used to track memory leaks
-    uint64_t domainID = 0;
-    
-public:
-    //A < operator for inserting into ordered sets etc
-    friend bool operator<(GenerationalPointer lhs, GenerationalPointer rhs){
-        return lhs.raw_ptr < rhs.raw_ptr;
-    }
-    
-    //Retrieve the number of pointers within a given domain
-    static size_t CheckDomain(uint64_t domain) {
-        size_t count = std::count_if(PointerMaps::domains.begin(), PointerMaps::domains.end(), [=](const auto& e) {
-            return e.second == domain;
-        });
-        return count;
-    }
-
-    //Create a new GenerationalPointer and perform all the associations necessary
-    template<typename... Q>
-    static GenerationalPointer MakeNewGenerationalT(uint64_t domain = 0, Q... q...) {
-        GenerationalPointer GP;
-        GP.raw_ptr = getRaw(std::forward(q)...);
-        if (PointerMaps::generations.find(GP.raw_ptr) != PointerMaps::generations.end())
-            PointerMaps::generations.at(GP.raw_ptr)++;
-        else
-            PointerMaps::generations[GP.raw_ptr] = 1;
-        GP.Gen = PointerMaps::generations[GP.raw_ptr];
-        AssociateDomain(GP, domain);
-        GP.domainID = domain;
-        ASSERT_RUN(PanicCheckQuick(GP));
-        return GP;
-    }
-
-    //Verify that the generation is valid, return bool
-    static bool CheckGeneration(GenerationalPointer GP) {
-        bool found = (PointerMaps::generations.contains(GP.raw_ptr));
-        if (not found)
-            return false;
-        bool check = (GP.Gen == PointerMaps::generations.at(GP.raw_ptr));
-        if (found and check)
-            return true;
-        else
-            return false;
-    }
-
-    //Panic if the generation check does not return true
-    static void PanicCheckGeneration(GenerationalPointer GP) {
-        if (CheckGeneration(GP) == false)
-            PANIC("Generation mismatch on PanicCheck!");
-        else
-            return;
-    }
-
-    //Delete a pointer, add it to the "freelist" if enabled
-    static void DeleteNewGenerationalT(GenerationalPointer GP) {
-        bool EraseResult = TryErase(GP);
-        if (EraseResult == false)
-            PANIC("Memory Error: Generation mismatch on deletion.");
-    }
-
-    //Try to erase if the generation checks pass, return true on success
-    static bool TryErase(GenerationalPointer GP) {
-        bool Check = CheckGeneration(GP);
-        if (Check) {
-            DeleteRaw(GP);
-            DeassociateDomain(GP);
-            return true;
-        }
-        else if(not Check) {
-            return false;
-        }
-        UNREACHABLE("Check or not check");
-    }
-
-    //Delete the raw pointer
-    static void DeleteRaw(GenerationalPointer GP) {
-        delete GP.raw_ptr;
-        PointerMaps::generations[GP.raw_ptr]++;
-    }
-
-    //Dereference after a panic check
-    T& operator*() {
-        PanicCheckGeneration(*this);
-        return *raw_ptr;
-    }
-
-private:
-    //Given a GenerationalPointer and a domain, insert the GenerationalPointer into the domain
-    static void AssociateDomain(GenerationalPointer GP, uint64_t domain) {
-        PointerMaps::domains.insert({ GP.raw_ptr, domain });
-    }
-
-    //Given a GenerationalPointer and a domain, mark the pointer as associated
-    static void DeassociateDomain(GenerationalPointer GP) {
-        PointerMaps::domains.erase(GP.raw_ptr);
-    }
-
-    //Construct a new raw pointer, passing the constructor args
-    template<typename... Q>
-    static T* getRaw(Q... q) {
-            return new T(std::forward(q)...);
-    }
-};
+//Combine SequenceBuilder and FunctionBuilder; Separate out Function and Sequence execution
+//A class to implement the static max_id; map<id, data>; value() = map[id] pattern (Use a single max_id for all classes)
 
 
 //Start:
-
-
-#ifdef __ENABLE_ASSERTS
-#undef __ENABLE_ASSERTS
-#endif
-#define __ENABLE_ASSERTS 1
-
 //A tribool type
 //Supports true, false and unknown
 //Supports asserting conversions to bool (asserts on Unknown)
@@ -487,10 +199,6 @@ bool operator==(const IComparisonResult& lhs, const IComparisonResult& rhs) {
     return +IComparisonResult::Compare(lhs, rhs);
 }
 
-#ifdef __ENABLE_ASSERTS
-#undef __ENABLE_ASSERTS
-#endif
-#define __ENABLE_ASSERTS 1
 
 //IComparisonResult that autoconverts to bool
 //Asserts if unknown is implicitly converted
@@ -520,6 +228,11 @@ IComparisonToBool operator&&(const IComparisonResult& lhs, const IComparisonResu
 }
 IComparisonToBool operator&&(const IComparisonToBool& lhs, const IComparisonToBool& rhs) {
     return lhs.getIComparisonResult() and rhs.getIComparisonResult();
+}
+//Coercing comparison
+//Used in asserts
+bool operator&&(const IComparisonToBool& lhs, const char*) {
+    return +lhs.getIComparisonResult();
 }
 
 //Boolean or
@@ -1107,11 +820,19 @@ public:
         container.clear();
     }
 
-    //Ordered multiSet Union (Preserves order)
+    //Ordered multiSet Union (lhs first unmodified, rhs elements after if not in lhs)
     static IMany Union(const IMany& lhs, const IMany& rhs) {
-        TODO;
+        IMany ret = lhs;
+        for (int i = 0; i < rhs.container.size(); i++) {
+            auto element = rhs.container[i];
+            if (!IsMember(lhs, element)) {
+                ret.InsertIAnyEnd(element);
+            }
+        }
+        FIXME("Change to account for element counts");
+        return ret;
     }
-    //Ordered multiSet Intersection (Preserves order)
+    //Ordered multiSet Intersection (Remove from lhs elements that are in rhs, as many times as they're there)
     static IMany Intersection(const IMany& lhs, const IMany& rhs) {
         TODO;
     }
@@ -1121,7 +842,11 @@ public:
     }
     //Set size = number of unique elements
     size_t SizeSet() const {
-        TODO;
+        std::unordered_set<IAny> z;
+        for (const auto& element : container) {
+            z.insert(element);
+        }
+        return z.size();
     }
     //Vector size = number of inserted elements
     size_t SizeVector() const {
@@ -1220,7 +945,7 @@ private:
     //Retrieve the ith element, according to index and transform
     static IAny get_i_element(const IMany& hs, number index, const MonoIndexFunction hs_index = nullptr, const MonoAnyFunction hs_transform = nullptr)
     {
-        size_t new_index = (hs_index ? hs_index(index) : index);
+        size_t new_index = to_size_t(hs_index ? hs_index(index) : index);
         return hs_transform ? hs_transform(hs.container[new_index]) : hs.container[new_index];
     };
 };
@@ -1238,6 +963,14 @@ public:
             data.container.push_back(x);
         }
     }
+    //Construct from a homogeneous list
+    template<typename T>
+    PolyMany(std::initializer_list<T> l) {
+        for (auto&& x : l) {
+            data.container.push_back(IAny(x));
+        }
+    }
+
     operator IMany() {
         return data;
     }
@@ -1496,8 +1229,13 @@ public:
         bool found = false;
         for (const std::pair<number, number>& entry : a.data) {
             if (entry.second != 0) {
-                found = true;
-                max = std::max(max, entry.first);
+                if (not found) {
+                    max = entry.first;
+                    found = true;
+                }
+                else {
+                    max = std::max(max, entry.first);
+                }
             }
         }
         if (found)
@@ -1622,7 +1360,7 @@ public:
             return IAny{};
         IMany choices = selectionNodes[before];
         choices.AssertAllType<SequencePoint>("Must all be SequencePoints");
-        if (choices.SizeVector() < choice)
+        if (choices.SizeVector() < to_size_t(choice))
             return IAny{};
         SequencePoint result = choices.nthElementVector(choice).GetCppType<SequencePoint>("Expected SequencePoint");
         return IAny{ result };
@@ -1646,7 +1384,7 @@ public:
             return followSequencePointSimple(before);
         }
         else if (isInSelectionNodes(before)) {
-            if (selectionNodes[before].SizeVector() < choice)
+            if (selectionNodes[before].SizeVector() < to_size_t(choice))
                 return IAny{};
 
         }
@@ -1848,7 +1586,8 @@ public:
 
     //Call the function associated with this node
     //Retrieve the functions/operands from within the FunctionNodes()
-    Tuple dispatchThis(Tuple input) {
+    Tuple dispatchThis(Tuple input_) {
+        Tuple input = normalize(input_);
         CASES(NodeClass(), 
             NodeType::Uninitialized,
             NodeType::Constant,
@@ -1947,13 +1686,13 @@ public:
         }
         case NodeType::PiecewiseLess: {
             ASSUME(FunctionNodes().SizeVector() == 3, "FunctionNode PiecewiseLess must store three elements!");
-            Function ahs_f = FunctionNodes().nthElementVector(0).GetCppType<Function>("First element must be a Function!");
-            Function bhs_f = FunctionNodes().nthElementVector(1).GetCppType<Function>("Second element must be a Function!");
-            Function chs_f = FunctionNodes().nthElementVector(2).GetCppType<Function>("Third element must be a Function!");
-            Tuple    ahs_t = ahs_f(input);
-            Tuple    bhs_t = bhs_f(input);
-            Tuple    chs_t = chs_f(input);
-            output = EvaluatePiecewiseLess(ahs_t, bhs_t, chs_t.GetNumberConst_Index(0));
+            Function left_f = FunctionNodes().nthElementVector(0).GetCppType<Function>("First element must be a Function!");
+            Function right_f = FunctionNodes().nthElementVector(1).GetCppType<Function>("Second element must be a Function!");
+            Function threshold_f = FunctionNodes().nthElementVector(2).GetCppType<Function>("Third element must be a Function!");
+            Tuple    left_t = left_f(input);
+            Tuple    right_t = right_f(input);
+            Tuple    threshold = threshold_f(input);
+            output = EvaluatePiecewiseLess(left_t, right_t, threshold.GetNumberConst_Index(0));
             break;
         }
         case NodeType::GetIndex: {
@@ -2130,10 +1869,12 @@ public:
             number a_val = input_a.GetNumberConst_Index(index);
             number b_val = input_b.GetNumberConst_Index(index);
             if (index < threshold) {
-                result.data[index] = a_val;
+                if(a_val != 0)
+                    result.data[index] = a_val;
             }
             else if (index >= threshold) {
-                result.data[index] = b_val;
+                if(b_val != 0)
+                    result.data[index] = b_val;
             }
         }
         return result;
@@ -2209,28 +1950,41 @@ public:
         return dispatchThis(input);
     }
 
+    static Tuple normalize(Tuple input) {
+        std::erase_if(input.data, [](auto x)->bool { return x.second == 0; });
+        if (input.data.size() == 0)
+            input = Tuple();
+        return input;
+    }
+
     //Takes four parameters: Input, Recursive call argument generator, basecase, and full-function
     //Uses "shrinker" to "shrink" the operand to a lexicographically smaller tuple
-    //If shrunk operand is L< 0 or has any element at -1, -2, ... or has any element < 0; return the basecase
+    //If shrunk operand is L<= 0 or has any negative element at positive index; return the basecase
     //Return the result of applying the "top" function to the shrunk value
     //If top returns the "true" function, can be used to create recursive calls
     //eg: A borrow node with shrinker = x - 1, and a borrow node with shrinker = x - 2, on top(x) = borrow1 + borrow2 can represent the fibonacci function
     static Tuple EvaluateBorrow(Tuple Op1, Function shrinker, Tuple basecase, Function top) {
+        static Tuple ZeroT = Tuple(0);
         if (+Tuple::isZero(Op1)) {
             return basecase;
         }
         Tuple shrunk1 = shrinker(Op1);
-        Tuple shrunk1Left = EvaluatePiecewiseLess(shrunk1, number(0), number(0));
-        //If the left half isn't empty
+        Tuple shrunk1Left = EvaluatePiecewiseLess(shrunk1, ZeroT, number(0));
+        Tuple shrunk1Right = EvaluatePiecewiseLess(ZeroT, shrunk1, number(0));
+        //If the left half is not empty
         bool isLeftNotEmpty = not Tuple::isZero(shrunk1Left);
+        //If the right half is empty
+        bool isRightEmpty = +Tuple::isZero(shrunk1Right);
         //If Input << 0
-        bool isNegative = +Tuple::isLess(shrunk1, number(0));
-        //If Input <<= Shrunk
+        bool isNegative = +Tuple::isLess(shrunk1, ZeroT);
+        //If not Input <<= Shrunk
         bool isNotSmaller = not Tuple::isLess(shrunk1, Op1);
         //If Input < 0 != 0
-        bool hasAnyNegative = not Tuple::isZero(Function::EvaluatePointwiseLess(shrunk1, Tuple(), shrunk1, Tuple()));
+        bool hasAnyNegative = not Tuple::isZero(Function::EvaluatePointwiseLess(shrunk1, ZeroT, shrunk1, ZeroT));
+        //If Input > 0 == 0
+        bool hasAnyNegativeRight = not Tuple::isZero(Function::EvaluatePointwiseLess(shrunk1Right, ZeroT, shrunk1Right, ZeroT));
 
-        if (isLeftNotEmpty or isNegative or isNotSmaller or hasAnyNegative) {
+        if (isRightEmpty or isNegative or isNotSmaller or hasAnyNegativeRight) {
             return basecase;
         }
         return top(shrunk1);
@@ -2329,10 +2083,10 @@ public:
         }
         case NodeType::PiecewiseLess: {
             ASSUME(FunctionNodes().SizeVector() == 3, "FunctionNode PiecewiseLess must store three elements!");
-            Function ahs_f = FunctionNodes().nthElementVector(0).GetCppType<Function>("First element must be a Function!");
-            Function bhs_f = FunctionNodes().nthElementVector(1).GetCppType<Function>("Second element must be a Function!");
-            Function chs_f = FunctionNodes().nthElementVector(2).GetCppType<Function>("Third element must be a Function!");
-            return std::string("(") + bhs_f.print_Function(true) + " | " + ahs_f.print_Function(true) + " | " + chs_f.print_Function(true) + ")" + id_;
+            Function left = FunctionNodes().nthElementVector(0).GetCppType<Function>("First element must be a Function!");
+            Function right = FunctionNodes().nthElementVector(1).GetCppType<Function>("Second element must be a Function!");
+            Function threshold = FunctionNodes().nthElementVector(2).GetCppType<Function>("Third element must be a Function!");
+            return std::string("(") + left.print_Function(true) + " | " + threshold.print_Function(true) + " | " + right.print_Function(true) + ")" + id_;
         }
         case NodeType::GetIndex: {
             ASSUME(FunctionNodes().SizeVector() == 2, "FunctionNode GetIndex must store two elements!");
@@ -2614,7 +2368,7 @@ public:
         FunctionGetIndex,          //Build Result[0] = a[b[0]]
         FunctionSetIndex,       //Build Result[a[0]] = b[0]
         FunctionBorrowedNode,   //Build recursive call
-        UnsetBorrowFromNode,         //The node that is borrowed from
+        UnsetBorrowFromNode,    //The node that is borrowed from
         SetBorrowFrom,          //A "borrow from" node that is set to another function
         CallFunctionNode,       //Calls a prebuilt function
     };
@@ -2679,6 +2433,11 @@ public:
     }
 
     FunctionBuilder(number n): FunctionBuilder() {
+        FunctionBuilderNode() = FunctionBuilderNodeTypes::ConstantTerminal;
+        data().InsertTypeEnd(Tuple(n));
+    }
+
+    FunctionBuilder(std::integral auto n) : FunctionBuilder() {
         FunctionBuilderNode() = FunctionBuilderNodeTypes::ConstantTerminal;
         data().InsertTypeEnd(Tuple(n));
     }
@@ -2767,6 +2526,17 @@ public:
 
     FunctionBuilder operator[](const FunctionBuilder index) const {
         return GetIndex(index);
+    }
+
+    FunctionBuilder operator-() const {
+        const FunctionBuilder& lhs = *this;
+        const FunctionBuilder& rhs = Tuple(-1);
+        ASSUME(isNotUninitialized(lhs), "Must be initialized");
+        FunctionBuilder result;
+        result.data().InsertTypeEnd<FunctionBuilder>(lhs);
+        result.data().InsertTypeEnd<FunctionBuilder>(rhs);
+        result.FunctionBuilderNode() = FunctionBuilderNodeTypes::FunctionProduct;
+        return result;
     }
 
     class PolyTuple {
@@ -2892,10 +2662,10 @@ public:
         }
         case FunctionBuilder::FunctionBuilderNodeTypes::FunctionPiecewiseLess: {
             ASSERT(data().SizeVector() == 3, "Expecting 3 elements!");
-            Function F0 = data().nthElementVector(0).GetCppType<FunctionBuilder>().buildFunction();
-            Function F1 = data().nthElementVector(1).GetCppType<FunctionBuilder>().buildFunction();
-            Function F2 = data().nthElementVector(2).GetCppType<FunctionBuilder>().buildFunction();
-            return_value.SetPiecewiseLess(F0, F1, F2);
+            Function alt_1 = data().nthElementVector(0).GetCppType<FunctionBuilder>().buildFunction();
+            Function threshold = data().nthElementVector(1).GetCppType<FunctionBuilder>().buildFunction();
+            Function alt_2 = data().nthElementVector(2).GetCppType<FunctionBuilder>().buildFunction();
+            return_value.SetPiecewiseLess(threshold, alt_1, alt_2);
             break;
         }
         case FunctionBuilder::FunctionBuilderNodeTypes::FunctionLexicographicLess: {
@@ -3050,10 +2820,10 @@ private:
     }
 
     struct SetTypeOP;
-    friend struct LexicographicCase2;
-    friend struct PointwiseCase2;
-    friend struct PiecewiseCase1;
-    friend struct SetType;
+    friend class LexicographicCase2;
+    friend class PointwiseCase2;
+    friend class PiecewiseCase1;
+    friend class SetType;
     friend FunctionBuilder operator||(LexicographicCase2 PC, FunctionBuilder alt_2);
     friend FunctionBuilder operator||(PointwiseCase2 PC, FunctionBuilder alt_2);
     friend FunctionBuilder operator|(PiecewiseCase1 PC, FunctionBuilder alt_2);
@@ -3073,15 +2843,15 @@ private:
         return result;
     }
 
-    //Build expression i < x[0] ? a[i] : b[i]
-    static FunctionBuilder BuildPiecewiseLess(const FunctionBuilder x, const FunctionBuilder a, const FunctionBuilder b) {
-        ASSUME(isNotUninitialized(a), "Must be initialized");
-        ASSUME(isNotUninitialized(b), "Must be initialized");
-        ASSUME(isNotUninitialized(x), "Must be initialized");
+    //Build expression i < index ? alt_1[i] : alt_2[i]
+    static FunctionBuilder BuildPiecewiseLess(const FunctionBuilder alt_1, const FunctionBuilder index, const FunctionBuilder alt_2) {
+        ASSUME(isNotUninitialized(alt_1), "Must be initialized");
+        ASSUME(isNotUninitialized(index), "Must be initialized");
+        ASSUME(isNotUninitialized(alt_2), "Must be initialized");
         FunctionBuilder result;
-        result.data().InsertTypeEnd<FunctionBuilder>(a);
-        result.data().InsertTypeEnd<FunctionBuilder>(b);
-        result.data().InsertTypeEnd<FunctionBuilder>(x);
+        result.data().InsertTypeEnd<FunctionBuilder>(alt_1);
+        result.data().InsertTypeEnd<FunctionBuilder>(index);
+        result.data().InsertTypeEnd<FunctionBuilder>(alt_2);
         result.FunctionBuilderNode() = FunctionBuilderNodeTypes::FunctionPiecewiseLess;
         return result;
     }
@@ -3126,14 +2896,13 @@ private:
     }
 
 public:
-    FunctionBuilder operator[](SetTypeOP S);
+    FunctionBuilder operator[](SetTypeOP S) const;
 };
 
 std::unordered_map<number, IMany> FunctionBuilder::data_static{};
 number FunctionBuilder::max_builder_id = 0;
 std::unordered_map<number, FunctionBuilder::FunctionBuilderNodeTypes> FunctionBuilder::node_types;
 std::unordered_map<number, std::string> FunctionBuilder::names;
-
 
 FunctionBuilder const_(FunctionBuilder::PolyTuple i) {
     return i;
@@ -3174,30 +2943,21 @@ PointwiseCase1 operator>(FunctionBuilder value, FunctionBuilder test) { return P
 
 
 //alt_1 | test | alt_2
-class Piecewise;
 class PiecewiseCase1;
 
 class PiecewiseCase1 {
 public:
-    FunctionBuilder test;
-    FunctionBuilder value;
+    FunctionBuilder index;
+    FunctionBuilder alt_1;
 
-    PiecewiseCase1(FunctionBuilder value, Piecewise test);
+    PiecewiseCase1(FunctionBuilder value, FunctionBuilder test);
     friend FunctionBuilder operator|(PiecewiseCase1 PC, FunctionBuilder alt_1);
 };
 
-class Piecewise {
-public:
-    Piecewise(FunctionBuilder F);
-    friend PiecewiseCase1 operator|(FunctionBuilder F, Piecewise P);
-    FunctionBuilder index;
-};
+PiecewiseCase1::PiecewiseCase1(FunctionBuilder alt_1, FunctionBuilder index) : alt_1(alt_1), index(index) {}
 
-PiecewiseCase1::PiecewiseCase1(FunctionBuilder value, Piecewise test) : value(value), test(test.index) {}
-Piecewise::Piecewise(FunctionBuilder F) : index(F) {}
-
-FunctionBuilder operator|(PiecewiseCase1 PC, FunctionBuilder alt_2) { return FunctionBuilder::BuildPiecewiseLess(PC.value, PC.test, alt_2); }
-PiecewiseCase1 operator|(FunctionBuilder alt_1, Piecewise index) { return PiecewiseCase1(alt_1, index); }
+FunctionBuilder operator|(PiecewiseCase1 PC, FunctionBuilder alt_2) { return FunctionBuilder::BuildPiecewiseLess(PC.alt_1, PC.index, alt_2); }
+PiecewiseCase1 operator|(FunctionBuilder alt_1, FunctionBuilder index) { return PiecewiseCase1(alt_1, index); }
 
 
 class LexicographicCase1;
@@ -3235,29 +2995,70 @@ struct FunctionBuilder::SetTypeOP {
 };
 
 struct SetType {
-    FunctionBuilder::SetTypeOP operator>>(FunctionBuilder F) {
+    FunctionBuilder::SetTypeOP operator>>(const FunctionBuilder F) const {
         return FunctionBuilder::SetTypeOP(F);
     }
 } set;
 
-FunctionBuilder FunctionBuilder::operator[](SetTypeOP S) {
+FunctionBuilder FunctionBuilder::operator[](const SetTypeOP S) const {
     return FunctionBuilder::SetIndex(S.F);
 }
 
 //If Test(x) == case_, return Value(x), else return Main(x);
-static Function CreateCase(Tuple case_, FunctionBuilder Value, FunctionBuilder Main, FunctionBuilder Test) {
+static FunctionBuilder CreateCase(Tuple case_, FunctionBuilder Value, FunctionBuilder Main, FunctionBuilder Test) {
     FunctionBuilder Identity = var_;
     FunctionBuilder Case = case_;
     FunctionBuilder IsLess = Test << Case || Main || Value;
     FunctionBuilder IsMore = Case << Test || Main || IsLess;
-    return IsMore.buildFunction();
+    return IsMore;
 }
 
 //base[index] = value, base[!index] = base
-static Function CreatePiecewiseAt(FunctionBuilder base, FunctionBuilder index, FunctionBuilder value) {
-    //F[-Inf:Index] = base; F[Index:Index+1] = value; F[Index + 1:Infinity] = base;
+static FunctionBuilder CreatePiecewiseAt(FunctionBuilder base, FunctionBuilder index, FunctionBuilder value) {
+    //F[-Inf:Index -1] = base; F[Index:Index] = value; F[Index +1:Inf] = base;
     FunctionBuilder FinalResult = base | index | value | index + 1 | base;
-    return FinalResult.buildFunction();
+    return FinalResult;
+}
+
+//Return a function that performs pointwise x < 0 ? -x : x
+static FunctionBuilder PointwiseAbs(FunctionBuilder base) {
+    FunctionBuilder abs = var_ < 0 || -base || base;
+    return abs;
+}
+
+//retrieve an overestimate for the maxHeight for a tuple
+static FunctionBuilder MaxHeight() {
+    //C++ algorithm:
+    number i = 0;
+    // guard against var_[0:Inf] = 0 -> Return 0
+    // y = Abs var_
+    // z = set y[0] to 0
+    //While shrinking z: increment z[0] and check if 0 | z[0] | z << var_
+    //  If so,  return z[0] from the borrow
+    //  If not, continue shrinking
+
+    //[0: 5, 1: 1, 2: 1, 3: 1, 4: 1, 5: 1, 6: 1, 7: 1, 8: 1]
+    //[0: 0, 1: 1, 2: 1, 3: 1, 4: 1, 5: 1, 6: 1, 7: 1, 8: 1]
+    //[0: 1, 1: 1, 2: 1, 3: 1, 4: 1, 5: 1, 6: 1, 7: 1, 8: 1]
+    //[0: 2, 2: 1, 3: 1, 4: 1, 5: 1, 6: 1, 7: 1, 8: 1]
+    //[0: 3, 3: 1, 4: 1, 5: 1, 6: 1, 7: 1, 8: 1]
+
+    FunctionBuilder top = FunctionBuilder::BorrowFrom();
+    FunctionBuilder y = PointwiseAbs(var_);
+    FunctionBuilder z = CreatePiecewiseAt(y, 0, 0);
+    z.setName("z");
+
+    //Increment the base
+    FunctionBuilder Shrink1 = z + 1;
+    //Splice zeroes from 1 to z[0]
+    FunctionBuilder Shrink2 = Shrink1 | const_(1) | const_(0);
+    FunctionBuilder Shrink3 = Shrink2 | z[0] | z;
+    //If Shrink2 << (0, 1), return Shrink2[0]; else return top(Shrink2)
+    top ^= z << const_({ 0, 1 }) || 1 || top(Shrink3, 1) + 1;
+
+
+
+    return top;
 }
 
 //A tuple variable that always evaluates f[input_] = value
@@ -3305,32 +3106,28 @@ ConstrainedTuple operator&=(FunctionBuilder fB, ConstrainedTupleTarget ctt) {
 
 ConstrainedTupleTarget ctt_(FunctionBuilder::PolyTuple input) { return ConstrainedTupleTarget(input); }
 
-
+//Convert a string to a tuple
 Tuple parse_tuple(const std::string& is)
 {
     TODO;
     Tuple T;
     using boost::spirit::qi::stream;
     using boost::spirit::qi::stream_parser;
-    using boost::spirit::qi::phrase_parse;
+    using boost::spirit::qi::parse;
     using boost::spirit::qi::char_;
     using boost::spirit::qi::space;
     using boost::phoenix::push_back;
     using boost::phoenix::ref;
     using boost::phoenix::placeholders::_1;
-    stream_parser<char, number> num_parser;
+    //stream_parser<char, number> num_parser;
+    auto num_parser = char_;
 
     std::vector<number> temp_num;
-
     auto parse_action = [&](auto& ctx)->void {
         temp_num.push_back(_attr(ctx));
-        };
+    };
 
-    //phrase_parse(is.begin(), is.end(), 
-    //    char_('[') >>
-    //    (num_parser[parse_action] % char_(','))
-    //    >> char_(']'),
-    //    space);
+    //parse(is.begin(), is.end(), char_('[') >> *((+(char_ >> char_(':'))>> char_) % char_(',')) >> char_(']'));
 
 
 
@@ -3339,40 +3136,124 @@ Tuple parse_tuple(const std::string& is)
 
 class SequencedCall;
 
+//Tie multiple tuples into 1
+class SequenceTie {
+    IMany Tuples;
+public:
+    //Retrieve the tied tuple for evaluation
+    Tuple ExecuteTie() {
+        //Convert a, b, c, into:
+        //-3: a[-1], -2: b[-1], -1: c[-1], 0: a[0], 1: b[0], 2: c[0], 3: a[1], ...
+        //Map index i of Tuple j to j + (i * n)
+        Tuples.AssertAllType<Tuple>("Must store tuples!");
+        const number n = Tuples.SizeVector();
+        if (n == 0) {
+            return Tuple{};
+        }
+        auto map_target_index = [n](number in_index, number in_tuple)->number { return (in_index * n) + in_tuple; };
+        auto map_get_index = [n](number out_index)->std::pair<number, number> { return { out_index / n, out_index % n }; };
+        number maxHeight = 0;
+        number minHeight = 0;
+        for (const IAny& Tx : Tuples.VectorIterate()) {
+            const Tuple& T = Tx.GetCppType<Tuple>("Must only store Tuples!");
+            using namespace std;
+            maxHeight = max(maxHeight, Tuple::getMaxHeight(T).GetNumberConst_Index(0));
+            minHeight = min(minHeight, Tuple::getMinHeight(T).GetNumberConst_Index(0));
+        }
+        Tuple ret;
+        for (number i = (minHeight - 1) * n; i <= maxHeight * n; i++) {
+            number a = 0, b = 0;
+            auto z = map_get_index(i);
+            a = z.first; b = z.second;
+            ASSERT(map_target_index(a, b) == i, "Must be reversible functions");
+            Tuple get = Tuples.nthElementVector(b).GetCppType<Tuple>("Must store Tuples!");
+            ret.GetNumber_Index(i) = get.GetNumber_Index(a);
+        }
+        return ret;
+    }
+    //A function for retrieving the nth Tuple when max are stored
+    static FunctionBuilder FunctionBuilderUntie(number n, number max) { 
+        TODO;
+    }
+    SequenceTie(std::initializer_list<Tuple> l) : Tuples(PolyMany(l)) {}  //Construct a collection of variables
+};
+
+//a + b = (Untie(0) + Untie(1))(SequenceTie(a, b))
 
 //Represent variables, tuples, streams etc
 //Allocate within the "function tuple"
 //Each terminal is a name for a piece of a Tuple; dehardcode the allocator
+//Have explicit "tie" and "get" functions for Tuples -> Tuple and Tuple -> Tuples
 class SequencedTerminal {
 public:
     auto operator=(SequencedTerminal) = delete;
+    static number max_id;
+    number id;
+
+    SequencedTerminal() { id = ++max_id; }
+    friend bool operator==(const SequencedTerminal& lhs, const SequencedTerminal& rhs) { return lhs.id == rhs.id; }
 };
+number SequencedTerminal::max_id = 0;
 
 //A sequence with associated code
 //Has simple sentences (SequenceTerminal = Function(SequenceTerminal))
 //If-else statements (if F[a] == b) {} else {};
-//Strong loops (for(i = 0; i != ...; i++) {no writes to i};)
+//Strong loops (for(i = 0; i != n; i++) {no writes to i};)
 //Weak loops (while(...) {}) (Maybe runs forever)
 class SequencedExecution {
 public:
     Sequence Flow;
-    
+    enum class SequencedExecutionTypes: int {
+        Uninitialized,  //Unitialized variable (not to be used)
+        SimpleAssign,   //Terminal = Function(terminals) (void)
+        Stream,         //Read from a stream into a terminal
+        Chain,          //A list of SequencedExecutions (void)
+        If,             //A forward branch (has a mandatory else) (void)
+        While,          //A while loop, arbitrary strength (void)
+        For,            //A strong for loop (i = 0 to n, i++) { no writes to i; } (void)
+    } ExecutionType;
+    IMany data;
+    static number max_id;
+    number id;
+
 public:
-    SequencedExecution(){}
-    SequencedExecution(std::initializer_list<SequencedExecution> cons);
+    SequencedExecution() { id = ++max_id; ExecutionType = SequencedExecutionTypes::Uninitialized; }
+    SequencedExecution(std::initializer_list<SequencedExecution>) : SequencedExecution() {};
     SequencedCall operator()(std::initializer_list<SequencedTerminal>);
+    //Identity
+    friend bool operator==(const SequencedExecution& lhs, const SequencedExecution& rhs) { return lhs.id == rhs.id; }
 };
+number SequencedExecution::max_id = 0;
 
 //Represent an expression, involving (possibly) multiple SequencedTerminals
 class SequencedFunctionCall {
+    IMany vars;                     //Store a list of SequencedFunctionCalls
+    FunctionBuilder var_Function;   //The function over the tied together variables
+
 public:
-    
-    
+    SequencedFunctionCall() {}
+    //Build a functioncall of two functioncalls
+    SequencedFunctionCall(SequencedTerminal st) : vars(PolyMany({ st })) { var_Function = var_; }
+    friend SequencedFunctionCall operator+(SequencedFunctionCall lhs, SequencedFunctionCall rhs) {
+        SequencedFunctionCall SFC;
+        SFC.vars.clear();
+        SFC.vars.InsertTypeEnd(lhs);
+        SFC.vars.InsertTypeEnd(rhs);
+        SFC.var_Function = SequenceTie::FunctionBuilderUntie(0, 2) + SequenceTie::FunctionBuilderUntie(1, 2);
+        //TODO_("Fix");
+        return SFC;
+    }
+    friend SequencedFunctionCall operator+(SequencedFunctionCall lhs, SequencedTerminal rhs) { return operator+(lhs, SequencedFunctionCall(rhs)); }
+    friend SequencedFunctionCall operator+(SequencedTerminal lhs, SequencedFunctionCall rhs) { return operator+(SequencedFunctionCall(lhs), rhs); }
+    friend bool operator==(const SequencedFunctionCall& lhs, const SequencedFunctionCall& rhs) { return +IMany::CompareVector(lhs.vars, rhs.vars) and +(lhs.var_Function == rhs.var_Function); }
 };
+
+SequencedFunctionCall operator+(SequencedTerminal lhs, SequencedTerminal rhs) { return operator+(SequencedFunctionCall(lhs), SequencedFunctionCall(rhs)); }
 
 //An execution-context defined manner of collapsing into a single value
 //eg console input, network management etc
-//Use sequences to lock its value as an optimization barrier (eg use a new root pointing to expected input, sequence after for "realtime")
+//Use sequences to lock its value as an optimization barrier
+//Also use state-machine-esque types to lock the sequence
 class SequencedStream {
     enum class StreamKinds {
         uninitialized,
@@ -3422,90 +3303,137 @@ public:
         }
         PANIC("UnknownStreamType!");
     }
-
+    friend bool operator==(SequencedStream a, SequencedStream b) { return a.StreamType == b.StreamType; }
 };
 
-//Set a variable, meta-version, outside of a Sequence
-void operator^=(SequencedTerminal&, const SequencedStream&) { TODO; }
 //Set a mutable variable, inside a Sequence
-//LHS accepts only symbols
-//RHS accepts expressions
-SequencedExecution operator <=(SequencedTerminal&, SequencedFunctionCall) { TODO; }
-
-class StreamRead_ {
-public:
-    StreamRead_(SequencedTerminal) {}
-};
+//LHS accepts only terminals
+//RHS accepts expressions ie function calls
+SequencedExecution operator<=(SequencedTerminal& lhs, SequencedFunctionCall rhs) {
+    SequencedExecution ret;
+    ret.ExecutionType = SequencedExecution::SequencedExecutionTypes::SimpleAssign;
+    ret.data.clear();
+    ret.data.InsertTypeEnd(lhs);
+    ret.data.InsertTypeEnd(rhs);
+    return ret;
+}
 
 //Represent the result of a SequenceExecution() - used as part of the definition
 class SequencedCall {
+    IMany terminal;
 public:
-    SequencedExecution operator()(std::initializer_list<SequencedExecution>);
+    SequencedExecution operator()(std::initializer_list<SequencedExecution> l);
+    SequencedCall(std::initializer_list<SequencedTerminal> l): terminal(PolyMany(l)) {}
 };
-SequencedCall SequencedExecution::operator()(std::initializer_list<SequencedTerminal>) { TODO; }
-SequencedExecution SequencedCall::operator()(std::initializer_list<SequencedExecution>) { TODO; }
-SequencedExecution operator<=(SequencedTerminal, FunctionBuilder::PolyTuple) { TODO; }
-SequencedExecution operator<=(SequencedTerminal, StreamRead_) { TODO; }
+//The function definition object resulting from a call f({parameters})
+//Use by attaching ({definition...}) to it
+SequencedCall SequencedExecution::operator()(std::initializer_list<SequencedTerminal> l) { return SequencedCall(l); }
+//The function code resulting from f({parameters})({definition})
+SequencedExecution SequencedCall::operator()(std::initializer_list<SequencedExecution> l) {
+    SequencedExecution ret;
+    ret.ExecutionType = SequencedExecution::SequencedExecutionTypes::Chain;
+    ret.data.clear();
+    for (const SequencedExecution& x : l) {
+        ret.data.InsertTypeEnd(x);
+    }
+    return ret;
+}
 
+//Assign a constant to a terminal
+SequencedExecution operator<=(SequencedTerminal Terminal, FunctionBuilder::PolyTuple Tuple_) {
+    SequencedExecution SE;
+    SE.ExecutionType = SequencedExecution::SequencedExecutionTypes::SimpleAssign;
+    SE.data.clear();
+    SE.data.InsertTypeEnd(Terminal);
+    SE.data.InsertTypeEnd<Tuple>(Tuple_);
+    return SE;
+}
+
+//Read from a stream to a terminal
+SequencedExecution operator<<(SequencedTerminal ST, SequencedStream SS) {
+    SequencedExecution SE;
+    SE.data.clear();
+    SE.ExecutionType = SequencedExecution::SequencedExecutionTypes::Stream;
+    SE.data.InsertTypeEnd(ST);
+    SE.data.InsertTypeEnd(SS);
+    return SE;
+}
+
+//Used for return_ <= ...
 class ReturnType{} return_;
+//Set the return terminal
 SequencedExecution operator<=(ReturnType, SequencedTerminal) { TODO; };
 
+//Use operator() to get the condition: Function(Tuple) = Value
+//Use another operator() to get the first alternative: if(cond) then alt_1
+//Use another operator() to get the second alternative: if(cond) then alt_1 else alt_2
+class SequenceIfAlt2 {
+    Function F;
+    SequencedTerminal input;
+    Tuple target;
+    SequencedExecution if_1;
+public:
+    SequencedExecution operator()(SequencedExecution if_2) {}
+    SequenceIfAlt2(Function F, SequencedTerminal input, Tuple target, SequencedExecution if_1) :
+        F(F), input(input), target(target), if_1(if_1) {}
+};
+
+class SequenceIfAlt1 {
+    Function F;
+    SequencedTerminal input;
+    Tuple target;
+public:
+    SequenceIfAlt2 operator()(SequencedExecution if_1) { return SequenceIfAlt2(F, input, target, if_1); }
+    SequenceIfAlt1(Function F, SequencedTerminal input, Tuple target): F(F), input(input), target(target) {}
+};
+
+SequenceIfAlt1 if_(Function F, SequencedTerminal input, Tuple target) { return SequenceIfAlt1(F, input, target); }
+
+class SequenceWhile {
+    Function F; SequencedTerminal input; Tuple target;
+public:
+    SequencedExecution operator()(SequencedExecution loop) { TODO; }
+    SequenceWhile(Function F, SequencedTerminal input, Tuple target): F(F), input(input), target(target) {}
+};
+
+SequenceWhile while_(Function F, SequencedTerminal input, Tuple target) { return SequenceWhile(F, input, target); }
+
+
+class SequenceFor {
+    SequencedTerminal input, target;
+public:
+    SequencedExecution operator()(SequencedExecution loop) { TODO; }
+    SequenceFor(SequencedTerminal input, SequencedTerminal target) : input(input), target(target) {}
+};
+
+SequenceFor for_(SequencedTerminal input, SequencedTerminal target) { return SequenceFor(input, target); }
+
 int main() {
-    ////Ackermann Function (arguments reversed): (Peter and Robinson version)
-    ////B(n, m, 0...)
-    ////B(x, 0...) = (x + 1, 0...)
-    ////B(x, 1, 0...) = A(0, A(1, x - 1)) = B(B(x - 1, 1), 0)
-    ////B(n, m, ...) = B(B(n - 1, m), m - 1, ...)
-    FunctionBuilder Ackermann = FunctionBuilder::BorrowFrom();
-    FunctionBuilder AckermannY0 = Ackermann(var_ - 1, 1);                   //Zeroth element
-    FunctionBuilder AckermannY1 = var_[1] - 1;                              //First element
-    FunctionBuilder AckermannY = AckermannY0[0] + AckermannY1[set >> 1];    //Compose inner call
-    Ackermann ^= (var_[1] < 1) || var_[0] + 1 || Ackermann(AckermannY, 1);     //if m < 1; n + 1; else ...
 
-    Function AckermannF = Ackermann.buildFunction();
-    std::cout << AckermannF.print_Function() << '\n';
-    for (int m = 0; m < 4; m++) {
-        for (int n = 0; n < 5; n++) {
-            std::cout << AckermannF(FunctionBuilder::PolyTuple({ n, m })).to_str() << ' ';
-        }
-        std::cout << '\n';
-    }
+    using namespace c_star_star;
 
-    //std::cout << AckermannF(FunctionBuilder::PolyTuple({ 1, 4 })).to_str() << ' ';
 
-    SequencedTerminal a, b, c, n, i, cin_;
-    cin_ ^= SequencedStream(&std::cin);
+    return 0;
+
+
+    SequencedTerminal a, b, c, n, i;
+    SequencedStream cin_(&std::cin);
     SequencedExecution Fibonacci_f;
     Fibonacci_f({})({
         a <= 0,
         b <= 1,
-        n <= StreamRead_(cin_),
-        bounded_for_(i, n)({    //for(i = 0; i != n; i++) {don't write to i!}
+        n << cin_,
+        for_(i, n)({
             c <= a + b,
             a <= b,
             b <= c,
         }),
-        return_ <= c
+        return_ <= c,
 	});
 
-
     return 0;
-#if 0
-    SequencedExecution while_l = SequencedExecution::While;
-    bounded_for_ newFor;
-    newFor.setInit(0);
-    newFor.setCondition(n);
-    Fibonacci_f.allocateTuples(a, b, c, n, i);
-    Fibonacci_f.allocateStream(cin_);
-    Fibonacci_f.setInputs();
-    Fibonacci_f.setFlow({
-        SequencedExecution::Set(a, 0),
-        SequencedExecution::Set(b, 1),
-        SequencedExecution::Read(cin_, n),
-        newFor,
-    });
-#endif
-    
+
+
     //    unsigned int x = 1;
     //    ASSUME(x != 0, "x should not be zero");
     //    CASES(x, 0, 2, 1, 3);
@@ -3675,7 +3603,7 @@ int main() {
     //AckermannGetSecond.name() = "x[1]";
     //Function AckermannBorrowValue = Function::CreateSubFunction(Identity, One);
     //AckermannBorrowValue.name() = "x - [1,...]";
-    //Function AckermannBorrowCall = Function::CreateBorrowNode(AckermannBorrowValue, number(1), &Ackermann);
+    //Function AckermannBorrowCall = Function::C*reateBorrowNode(AckermannBorrowValue, number(1), &Ackermann);
     ////AckermannBorrowCall.name() = "Ackermann_T1";
     //Function AckermannGetSecondBorrow = Function::CreateGetIndex(One, AckermannBorrowCall);
     //Function AckermannReduceSecondBorrow = Function::CreateSubFunction(AckermannGetSecondBorrow, One);
@@ -3733,6 +3661,24 @@ int main() {
     ////if c == d, succ(c) == succ(d)
     ////Successor(Variable1) = Successor(Variable2), witnesses var1: N, var2: N and var2 == var1
     //NEquivalence.setCreateOperation(TheoryExpression::TheoryExpression3(TheoryExpression::TheoryExpression1(TheoryExpression::TheoryCall(TheoryExpression::TheoryEqual(Successor), TheoryExpression::TheoryVariable(1))), TheoryExpression::TheoryExpression1(TheoryExpression::TheoryCall(TheoryExpression::TheoryEqual(Successor), TheoryExpression::TheoryVariable(2))), TheoryExpression::TheoryContext(TheoryExpression::TheoryVariables(1, 2), TheoryExpression::TheoryTypes(TheoryExpression::TheoryMember(N), TheoryExpression::MultiSubtype(TheoryExpression::TheoryMember(N), TheoryExpression::TheoryEqual(TheoryExpression::TheoryVariable(1)))))));
+
+    //FunctionBuilder Ackermann = FunctionBuilder::BorrowFrom();
+    //FunctionBuilder AckermannY0 = Ackermann(var_ - 1, 1);                       //Zeroth element
+    //FunctionBuilder AckermannY1 = var_[1] - 1;                                  //First element
+    //FunctionBuilder AckermannY = AckermannY0[0] + AckermannY1[set >> 1];        //Compose inner call
+    //Ackermann ^= (var_[1] < 1) || var_[0] + 1 || Ackermann(AckermannY, 1);      //if m < 1; n + 1; else ...
+
+    //Function AckermannF = Ackermann.buildFunction();
+    //std::cout << AckermannF.print_Function() << '\n';
+    //for (int m = 0; m < 4; m++) {
+    //    for (int n = 0; n < 5; n++) {
+    //        std::cout << AckermannF(FunctionBuilder::PolyTuple({ n, m })).to_str() << ' ';
+    //    }
+    //    std::cout << '\n';
+    //}
+
+    //std::cout << AckermannF(FunctionBuilder::PolyTuple({ 1, 4 })).to_str() << ' ';
+
 
     return 0;
 }

@@ -19,6 +19,7 @@
     </ProjectConfiguration>
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="AssertF.cpp" />
     <ClCompile Include="Precomp.cpp">
       <PrecompiledHeaderFile Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Precomp.h</PrecompiledHeaderFile>
       <PrecompiledHeaderFile Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Precomp.h</PrecompiledHeaderFile>
@@ -26,9 +27,12 @@
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Create</PrecompiledHeader>
     </ClCompile>
     <ClCompile Include="Source1.cpp" />
+    <ClCompile Include="GenerationalPointer.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Precomp.h" />
+    <ClInclude Include="Source1.h" />
+    <ClInclude Include="GenerationalPointer.h" />
   </ItemGroup>
   <PropertyGroup Label="Globals">
     <VCProjectVersion>17.0</VCProjectVersion>
@@ -129,10 +133,11 @@
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <SDLCheck>true</SDLCheck>
-      <PreprocessorDefinitions>NDEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>NDEBUG;_CONSOLE;%(PreprocessorDefinitions);</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
       <AdditionalIncludeDirectories>C:\Shared\Secure\Programming\Boost\boost_1_90_0</AdditionalIncludeDirectories>
       <LanguageStandard>stdcpp23</LanguageStandard>
+      <AdditionalOptions>/D "__NO_FIXME"=true %(AdditionalOptions)</AdditionalOptions>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
