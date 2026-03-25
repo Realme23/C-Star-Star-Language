@@ -24,7 +24,7 @@
     <ClCompile Include="Source1.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="GenerationalPointer.cpp">
+    <ClCompile Include="generationalpointer.cpp">
       <Filter>Utils</Filter>
     </ClCompile>
     <ClCompile Include="AssertF.cpp">
@@ -38,7 +38,7 @@
     <ClInclude Include="source1.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="generationalPointer.h">
+    <ClInclude Include="generationalpointer.h">
       <Filter>Utils</Filter>
     </ClInclude>
   </ItemGroup>
