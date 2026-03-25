@@ -1,11 +1,11 @@
 #pragma once
-#include "Main.h"
-#include "IComparison.h"
-#include "AssertsReleaseChecked.h"
+#include "../Main.h"
+#include "../Utils/IComparison.h"
 
 namespace c_star_star {
 	namespace polymorphic {
 
+		using IComparisonResult = tribool::IComparisonResult;
 		class IEmptyValue;
 		class IAny;
 		struct PolyAny;

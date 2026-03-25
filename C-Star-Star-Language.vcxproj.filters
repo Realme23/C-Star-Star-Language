@@ -18,57 +18,57 @@
     </Filter>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="Precomp.cpp">
+    <ClCompile Include="Source\Utils\Precomp.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="Main.cpp">
+    <ClCompile Include="Source\Main.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="GenerationalPointer.cpp">
+    <ClCompile Include="Source\Utils\GenerationalPointer.cpp">
       <Filter>Utils</Filter>
     </ClCompile>
-    <ClCompile Include="IComparison.cpp">
+    <ClCompile Include="Source\Utils\IComparison.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="IAny.cpp">
+    <ClCompile Include="Source\Polymorphic\IAny.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="IMany.cpp">
+    <ClCompile Include="Source\Polymorphic\IMany.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="Precomp.h">
+    <ClInclude Include="Source\Utils\Precomp.h">
       <Filter>Source Files</Filter>
     </ClInclude>
-    <ClInclude Include="Main.h">
+    <ClInclude Include="Source\Main.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="GenerationalPointer.h">
+    <ClInclude Include="Source\Utils\GenerationalPointer.h">
       <Filter>Utils</Filter>
     </ClInclude>
-    <ClInclude Include="IComparison.h">
+    <ClInclude Include="Source\Utils\IComparison.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="AssertRedefinitions.h">
+    <ClInclude Include="Source\Asserts\Redefinitions.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="AssertsDebug.h">
+    <ClInclude Include="Source\Asserts\ConfigDebug.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="AssertsReleaseChecked.h">
+    <ClInclude Include="Source\Asserts\ConfigReleaseChecked.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="Number.h">
+    <ClInclude Include="Source\Number\Number.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="AssertInvariants.h">
+    <ClInclude Include="Source\Asserts\Invariants.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="IAny.h">
+    <ClInclude Include="Source\Polymorphic\IAny.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="IMany.h">
+    <ClInclude Include="Source\Polymorphic\IMany.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

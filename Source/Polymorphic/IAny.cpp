@@ -1,6 +1,3 @@
-#include "Main.h"
-#include "IComparison.h"
-#include "AssertsReleaseChecked.h"
 #include "IAny.h"
 
 namespace c_star_star {

@@ -1,7 +1,7 @@
 #pragma once
-#include "Main.h"
+#include "../Main.h"
 //Used for the ASSERT etc in Function definitions; set choice of Bignum elsewhere
-#include "AssertsReleaseChecked.h"
+#include "../Asserts/ConfigReleaseChecked.h"
 
 namespace c_star_star {
 	namespace number {

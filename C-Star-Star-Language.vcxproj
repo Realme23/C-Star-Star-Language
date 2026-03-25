@@ -19,42 +19,42 @@
     </ProjectConfiguration>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="IComparison.cpp">
+    <ClCompile Include="Source\Utils\IComparison.cpp">
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
     </ClCompile>
-    <ClCompile Include="Precomp.cpp">
+    <ClCompile Include="Source\Utils\Precomp.cpp">
       <PrecompiledHeaderFile Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Precomp.h</PrecompiledHeaderFile>
       <PrecompiledHeaderFile Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Precomp.h</PrecompiledHeaderFile>
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Create</PrecompiledHeader>
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Create</PrecompiledHeader>
     </ClCompile>
-    <ClCompile Include="Main.cpp" />
-    <ClCompile Include="GenerationalPointer.cpp">
+    <ClCompile Include="Source\Main.cpp" />
+    <ClCompile Include="Source\Utils\GenerationalPointer.cpp">
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
     </ClCompile>
-    <ClCompile Include="IAny.cpp">
+    <ClCompile Include="Source\Polymorphic\IAny.cpp">
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
     </ClCompile>
-    <ClCompile Include="IMany.cpp">
+    <ClCompile Include="Source\Polymorphic\IMany.cpp">
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="IComparison.h" />
-    <ClInclude Include="Precomp.h" />
-    <ClInclude Include="Main.h" />
-    <ClInclude Include="GenerationalPointer.h">
+    <ClInclude Include="Source\Utils\IComparison.h" />
+    <ClInclude Include="Source\Utils\Precomp.h" />
+    <ClInclude Include="Source\Main.h" />
+    <ClInclude Include="Source\Utils\GenerationalPointer.h">
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
       </ExcludedFromBuild>
     </ClInclude>
-    <ClInclude Include="AssertRedefinitions.h" />
-    <ClInclude Include="AssertsDebug.h" />
-    <ClInclude Include="AssertsReleaseChecked.h" />
-    <ClInclude Include="Number.h" />
-    <ClInclude Include="AssertInvariants.h" />
-    <ClInclude Include="IAny.h" />
-    <ClInclude Include="IMany.h" />
+    <ClInclude Include="Source\Asserts\Redefinitions.h" />
+    <ClInclude Include="Source\Asserts\ConfigDebug.h" />
+    <ClInclude Include="Source\Asserts\ConfigReleaseChecked.h" />
+    <ClInclude Include="Source\Number\Number.h" />
+    <ClInclude Include="Source\Asserts\Invariants.h" />
+    <ClInclude Include="Source\Polymorphic\IAny.h" />
+    <ClInclude Include="Source\Polymorphic\IMany.h" />
   </ItemGroup>
   <PropertyGroup Label="Globals">
     <VCProjectVersion>17.0</VCProjectVersion>

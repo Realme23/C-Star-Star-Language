@@ -1,11 +1,12 @@
 
 #include "Main.h"
-#include "Number.h"
-#include "GenerationalPointer.cpp"
-#include "IComparison.cpp"
-#include "IAny.cpp"
-#include "IMany.cpp"
-#include "AssertsReleaseChecked.h"
+
+#include "Asserts/ConfigReleaseChecked.h"
+#include "Number/Number.h"
+#include "Utils/GenerationalPointer.cpp"
+#include "Utils/IComparison.cpp"
+#include "Polymorphic/IAny.cpp"
+#include "Polymorphic/IMany.cpp"
 
 //TODOs:
 //Remove all IManys after prototyping
@@ -104,6 +105,7 @@
 
 using namespace c_star_star::polymorphic;
 using namespace c_star_star::number;
+using namespace c_star_star::tribool;
 
 //Builds IMany, with construct, append, lock and produce stages
 //Assert on violation

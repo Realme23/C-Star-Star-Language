@@ -1,8 +1,7 @@
 #pragma once
-#include "Main.h"
-#include "IAny.h"
-#include "Number.h"
-#include "AssertsReleaseChecked.h"
+#include "../Main.h"
+#include "../Polymorphic/IAny.h"
+#include "../Number/Number.h"
 
 namespace c_star_star {
     namespace polymorphic {
