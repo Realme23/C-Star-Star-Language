@@ -1,6 +1,6 @@
 
 #include "source1.h"
-#include "generationalpointer.h"
+#include "generationalpointer.cpp"
 
 //TODOs:
 //Remove all IManys after prototyping
