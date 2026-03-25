@@ -32,4 +32,4 @@
 //Whether to use __SLOW_BIGNUM, __FAST_BIGNUM or __NO_BIGNUM
 #define __USE_BIGNUMS __FAST_BIGNUM
 
-#include "AssertDefinitions.h"
+#include "AssertRedefinitions.h"

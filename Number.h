@@ -1,9 +1,14 @@
 #pragma once
 #include "Main.h"
-//Configure the numbers conversions etc, not which number is used. Set that in the asserts config
+//Configure the numbers conversions etc, not which number is used. Set that with the "Asserts_.h" files
 #include "AssertsReleaseChecked.h"
 
 //number_: A configurable bignum for speed/debug/smallnum
+//set number_ from the implementations with Asserts_.h files
+
+using number_stringd = boost::multiprecision::number<boost::multiprecision::debug_adaptor<typename boost::multiprecision::cpp_int::backend_type>, boost::multiprecision::cpp_int::et>;
+using number_fast = boost::multiprecision::cpp_int;
+using number_small = signed long long;
 
 //__SLOW_BIGNUM: Use debug adaptor (shows the value as string in debugger)
 //__FAST_BIGNUM: Use bignums but no adaptor

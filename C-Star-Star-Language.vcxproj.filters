@@ -27,10 +27,10 @@
     <ClCompile Include="GenerationalPointer.cpp">
       <Filter>Utils</Filter>
     </ClCompile>
-    <ClCompile Include="AssertF.cpp">
-      <Filter>Utils</Filter>
-    </ClCompile>
     <ClCompile Include="IComparison.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="IAny.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
@@ -47,7 +47,7 @@
     <ClInclude Include="IComparison.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="AssertDefinitions.h">
+    <ClInclude Include="AssertRedefinitions.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="AssertsDebug.h">
@@ -57,6 +57,12 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="Number.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="AssertInvariants.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="IAny.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

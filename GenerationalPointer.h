@@ -172,7 +172,7 @@ namespace c_star_star {
 			GP.Gen = PointerMaps::generations[GP.raw_ptr];
 			AssociateDomain(GP, domain);
 			GP.domainID = domain;
-			ASSERT_RUN(PanicCheckGeneration(GP));
+			ASSERT_RUN(1, PanicCheckGeneration(GP));
 			return GP;
 		}
 
