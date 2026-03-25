@@ -1,6 +1,6 @@
 #pragma once
-#include "Source1.h"
-
+#include "Main.h"
+#include "AssertsReleaseChecked.h"
 
 namespace c_star_star {
     namespace pointers {

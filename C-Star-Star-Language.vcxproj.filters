@@ -21,7 +21,7 @@
     <ClCompile Include="Precomp.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="Source1.cpp">
+    <ClCompile Include="Main.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="GenerationalPointer.cpp">
@@ -38,13 +38,25 @@
     <ClInclude Include="Precomp.h">
       <Filter>Source Files</Filter>
     </ClInclude>
-    <ClInclude Include="source1.h">
+    <ClInclude Include="Main.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="GenerationalPointer.h">
       <Filter>Utils</Filter>
     </ClInclude>
     <ClInclude Include="IComparison.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="AssertDefinitions.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="AssertsDebug.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="AssertsReleaseChecked.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Number.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

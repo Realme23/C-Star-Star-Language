@@ -29,7 +29,7 @@
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Create</PrecompiledHeader>
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Create</PrecompiledHeader>
     </ClCompile>
-    <ClCompile Include="Source1.cpp" />
+    <ClCompile Include="Main.cpp" />
     <ClCompile Include="GenerationalPointer.cpp">
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
@@ -38,11 +38,15 @@
   <ItemGroup>
     <ClInclude Include="IComparison.h" />
     <ClInclude Include="Precomp.h" />
-    <ClInclude Include="source1.h" />
+    <ClInclude Include="Main.h" />
     <ClInclude Include="GenerationalPointer.h">
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
       </ExcludedFromBuild>
     </ClInclude>
+    <ClInclude Include="AssertDefinitions.h" />
+    <ClInclude Include="AssertsDebug.h" />
+    <ClInclude Include="AssertsReleaseChecked.h" />
+    <ClInclude Include="Number.h" />
   </ItemGroup>
   <PropertyGroup Label="Globals">
     <VCProjectVersion>17.0</VCProjectVersion>

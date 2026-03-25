@@ -1,10 +1,13 @@
-#include "source1.h"
+#include "Main.h"
 
-//Start:
 //A tribool type
 //Supports true, false and unknown
 //Supports asserting conversions to bool (asserts on Unknown)
 //Default construction to unknown
+class IComparisonResult;
+//Utility class: Converts to and from IComparisonResult and bool
+class IComparisonToBool;
+
 class IComparisonResult {
 public:
     //Default construct: set to unknown

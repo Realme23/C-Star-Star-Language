@@ -1,22 +1,14 @@
-#pragma once
+//No include guards!!! Can include multiple times
 
-#include "Precomp.h"
+#ifndef __ASSERTS_CONFIG_SET
+#error "Must set asserts before including this file"
+#endif
 
-//These values can be replaced with global/local variables:
-//Whether to enable asserts
-//Set higher number for heavier asserts
-#define __ENABLE_ASSERTS 1 
-//Whether to enable compiler assumption hints
-#define __ENABLE_ASSUMES 0 
-//Whether to allow known broken code
-#define __NO_FIXME_PANIC true 
-
-//Whether to use __SLOW_BIGNUM, __FAST_BIGNUM or __NO_BIGNUM
-#define __USE_BIGNUMS __SLOW_BIGNUM
+#include "Main.h"
 
 
-
-
+#define BOOST_ENABLE_ASSERT_HANDLER 
+#include <boost/assert.hpp>
 
 //Utilities
 //Assert, Assume and Unreachable
@@ -37,6 +29,7 @@
 //Disable before release
 //Only panic if __NO_FIXME_PANIC is disabled
 #define FIXME(...) do { if(__NO_FIXME_PANIC) PANIC(__VA_ARGS__); } while(0)
+
 
 
 #ifdef __cplusplus
@@ -73,6 +66,10 @@
 //eg Sorting, >O(n) preparations for asserts, run and check vs naive impl
 #define HEAVY_ASSERT_RUN(level,...) do { if(__ENABLE_HEAVY_ASSERTS && __ENABLE_HEAVY_ASSERTS > level) __VA_ARGS__; } while(0)
 
+//This shouldn't be a problem because all asserts have the same invocation
+//So include-guarding this section should be OK
+#ifndef __DEFINE_ASSERT_FUNCTIONS
+#define __DEFINE_ASSERT_FUNCTIONS 
 //CASES: Assert that atleast one of the following is equal to the test value
 // eg CASES(color, red, green, blue)
 //CASES_TRUE: Assert that atleast one of the following evaluates to true
@@ -103,52 +100,22 @@ template<typename... Q>
 constexpr void CASES_TRUE_FUNCTION(boost::source_location const& loc, Q... cases) {
     CASES_FUNCTION(loc, true, cases...);
 }
-
+#endif
 
 #define CASES(check_value,...) CASES_FUNCTION((BOOST_CURRENT_LOCATION), (check_value), __VA_ARGS__)
 #define CASES_TRUE(...) CASES_TRUE_FUNCTION((BOOST_CURRENT_LOCATION), __VA_ARGS__)
 
-
-//Type aliases
-//A multiprecision integer from boost
-
-
 #define __SLOW_BIGNUM 0
 #define __FAST_BIGNUM 1
 
-//__SLOW_BIGNUM: Use debug adaptor (shows the value as string in debugger)
-//__FAST_BIGNUM: Use bignums but no adaptor
-//If neither: Use Signed long long
-#ifndef __USE_BIGNUMS
-#error "Must specify bignums"
-#endif
-
 #if __USE_BIGNUMS == __SLOW_BIGNUM
-using number = boost::multiprecision::number<boost::multiprecision::debug_adaptor<typename boost::multiprecision::cpp_int::backend_type>, boost::multiprecision::cpp_int::et>;
-inline std::string to_string(number x) { return x.str(); }
-constexpr size_t to_size_t(number n) { ASSERT(n <= std::numeric_limits<size_t>::max(), "Too big to fit"); ASSERT(n >= 0, "Must be non-negative"); return n.convert_to<size_t>(); }
+#define number_ number_stringd
 #else
 #if __USE_BIGNUMS == __FAST_BIGNUM
-using number = boost::multiprecision::cpp_int;
-inline std::string to_string(number x) { return x.str(); }
-constexpr size_t to_size_t(number n) { ASSERT(n <= std::numeric_limits<size_t>::max(), "Too big to fit"); ASSERT(n >= 0, "Must be non-negative"); return n.convert_to<size_t>(); }
+#define number_ number_fast
 #else
 #if __USE_BIGNUMS == __NO_BIGNUM
-using number = signed long long;
-constexpr std::string to_string(number x) { return std::to_string(x); }
-constexpr size_t to_size_t(number n) { ASSERT(n <= std::numeric_limits<size_t>::max(), "Too big to fit"); ASSERT(n >= 0, "Must be non-negative"); return n; }
+#define number_ number_small
 #endif
 #endif
 #endif
-
-//An "any" type from boost
-//Must model reasonably pure functions, values eg (x == x, y = x => y == x, f(y) == f(x) is true) etc
-//Not expected to store eg "auto-iterating" iterators or multithreaded values
-//Must be copy constructible, equality, includes typeid_ support
-using any = boost::type_erasure::any<boost::mpl::vector<boost::type_erasure::copy_constructible<>, boost::type_erasure::typeid_<>, boost::type_erasure::equality_comparable<>, boost::type_erasure::relaxed>>;
-//Reference-safe type_id from C++ std
-using std::type_index;
-
-
-#define BOOST_ENABLE_ASSERT_HANDLER 
-#include <boost/assert.hpp>
