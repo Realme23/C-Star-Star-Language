@@ -36,6 +36,9 @@
     <ClCompile Include="IAny.cpp">
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
     </ClCompile>
+    <ClCompile Include="IMany.cpp">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="IComparison.h" />
@@ -51,6 +54,7 @@
     <ClInclude Include="Number.h" />
     <ClInclude Include="AssertInvariants.h" />
     <ClInclude Include="IAny.h" />
+    <ClInclude Include="IMany.h" />
   </ItemGroup>
   <PropertyGroup Label="Globals">
     <VCProjectVersion>17.0</VCProjectVersion>

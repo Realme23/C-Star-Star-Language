@@ -33,6 +33,9 @@
     <ClCompile Include="IAny.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="IMany.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Precomp.h">
@@ -63,6 +66,9 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="IAny.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="IMany.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

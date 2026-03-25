@@ -50,29 +50,29 @@ namespace boost {
 // eg CASES_TRUE(isEven(x), isOdd(x))
 //Disabled without asserts
 template<typename T, typename R>
-constexpr void CASES_FUNCTION(boost::source_location const& loc, T check_value, R cases_list) {
+constexpr void CASES_FUNCTION(int asserts, bool assumes, boost::source_location const& loc, T check_value, R cases_list) {
     ASSUME(check_value == cases_list, ("Cases not matched! Source location: " + loc.to_string()).c_str());
 }
 
 template<typename T, typename Q, typename S>
-constexpr void CASES_FUNCTION(boost::source_location const& loc, T check_value, Q first_case, S second_case) {
+constexpr void CASES_FUNCTION(int asserts, bool assumes, boost::source_location const& loc, T check_value, Q first_case, S second_case) {
     if (check_value != first_case) {
-        CASES_FUNCTION(loc, check_value, second_case);
+        CASES_FUNCTION(asserts, assumes, loc, check_value, second_case);
     }
     ASSUME(check_value == first_case or check_value == second_case, "Cases must be satisfied!");
 }
 
 template<typename T, typename Q, typename S, typename... R>
-constexpr void CASES_FUNCTION(boost::source_location const& loc, T check_value, Q first_case, S second_case, R... cases_list) {
+constexpr void CASES_FUNCTION(int asserts, bool assumes, boost::source_location const& loc, T check_value, Q first_case, S second_case, R... cases_list) {
     if (check_value != first_case) {
-        CASES_FUNCTION(loc, check_value, second_case, cases_list...);
+        CASES_FUNCTION(asserts, assumes, loc, check_value, second_case, cases_list...);
     }
     //ASSUME(check_value == first_case or check_value == second_case or (check_value == cases_list...), "Cases must be satisfied!");
 }
 
 template<typename... Q>
-constexpr void CASES_TRUE_FUNCTION(boost::source_location const& loc, Q... cases) {
-    CASES_FUNCTION(loc, true, cases...);
+constexpr void CASES_TRUE_FUNCTION(int asserts, bool assumes, boost::source_location const& loc, Q... cases) {
+    CASES_FUNCTION(asserts, assumes, loc, true, cases...);
 }
 
 #define __SLOW_BIGNUM 0

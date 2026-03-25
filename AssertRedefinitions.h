@@ -4,21 +4,8 @@
 #error "Must set asserts before including this file"
 #endif
 
-#define CASES(check_value,...) CASES_FUNCTION((BOOST_CURRENT_LOCATION), (check_value), __VA_ARGS__)
-#define CASES_TRUE(...) CASES_TRUE_FUNCTION((BOOST_CURRENT_LOCATION), __VA_ARGS__)
-
-
-#if __USE_BIGNUMS == __SLOW_BIGNUM
-#define number_ number_stringd
-#else
-#if __USE_BIGNUMS == __FAST_BIGNUM
-#define number_ number_fast
-#else
-#if __USE_BIGNUMS == __NO_BIGNUM
-#define number_ number_small
-#endif
-#endif
-#endif
+#define CASES(check_value,...) CASES_FUNCTION(__ENABLE_ASSERTS, __ENABLE_ASSUMES, (BOOST_CURRENT_LOCATION), (check_value), __VA_ARGS__)
+#define CASES_TRUE(...) CASES_TRUE_FUNCTION(__ENABLE_ASSERTS, __ENABLE_ASSUMES, (BOOST_CURRENT_LOCATION), __VA_ARGS__)
 
 #undef ASSERT
 #undef HEAVY_ASSERT
@@ -29,7 +16,19 @@
 #undef ASSUME
 #undef UNREACHABLE
 #undef ASSERT_RUN
+#undef number_
 
+#if __USE_BIGNUMS == __SLOW_BIGNUM
+#define number_ c_star_star::number::number_stringd
+#else
+#if __USE_BIGNUMS == __FAST_BIGNUM
+#define number_ c_star_star::number::number_fast
+#else
+#if __USE_BIGNUMS == __NO_BIGNUM
+#define number_ c_star_star::number::number_small
+#endif
+#endif
+#endif
 
 //Utilities
 //Assert, Assume and Unreachable
