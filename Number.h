@@ -1,5 +1,6 @@
 #pragma once
 #include "Main.h"
+//Configure the numbers conversions etc, not which number is used. Set that in the asserts config
 #include "AssertsReleaseChecked.h"
 
 //number_: A configurable bignum for speed/debug/smallnum

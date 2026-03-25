@@ -1,3 +1,4 @@
+#pragma once
 #include "Main.h"
 
 //A tribool type

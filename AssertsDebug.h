@@ -22,8 +22,9 @@
 //These values can be replaced with global/local variables:
 //Whether to enable asserts
 //Set higher number for heavier asserts
-#define __ENABLE_ASSERTS 1 
+#define __ENABLE_ASSERTS 2 
 //Whether to enable compiler assumption hints
+//ASSUME(x) checks validity with ASSERT(x)
 #define __ENABLE_ASSUMES 0 
 //Whether to allow known broken/incomplete code
 #define __NO_FIXME_PANIC true 

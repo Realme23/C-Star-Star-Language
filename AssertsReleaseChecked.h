@@ -24,6 +24,7 @@
 //Set higher number for heavier asserts
 #define __ENABLE_ASSERTS 1 
 //Whether to enable compiler assumption hints
+//ASSUME(x) checks validity with ASSERT(x)
 #define __ENABLE_ASSUMES 1 
 //Whether to allow known broken/incomplete code
 #define __NO_FIXME_PANIC false 
