@@ -1,7 +1,7 @@
 #pragma once
 #include "../Main.h"
 #include "../Polymorphic/IAny.h"
-#include "../Number/Number.h"
+#include "../Datatypes/Number.h"
 
 namespace c_star_star {
     namespace polymorphic {

@@ -36,6 +36,12 @@
     <ClCompile Include="Source\Polymorphic\IMany.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="Source\Interpreter\IMacroList.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="Source\Datatypes\Tuple.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Source\Utils\Precomp.h">
@@ -59,7 +65,7 @@
     <ClInclude Include="Source\Asserts\ConfigReleaseChecked.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="Source\Number\Number.h">
+    <ClInclude Include="Source\Datatypes\Number.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="Source\Asserts\Invariants.h">
@@ -69,6 +75,12 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="Source\Polymorphic\IMany.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Source\Interpreter\IMacroList.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Source\Datatypes\Tuple.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

@@ -19,6 +19,10 @@
     </ProjectConfiguration>
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="Source\Datatypes\Tuple.cpp" />
+    <ClCompile Include="Source\Interpreter\IMacroList.cpp">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
+    </ClCompile>
     <ClCompile Include="Source\Utils\IComparison.cpp">
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
     </ClCompile>
@@ -41,6 +45,8 @@
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="Source\Datatypes\Tuple.h" />
+    <ClInclude Include="Source\Interpreter\IMacroList.h" />
     <ClInclude Include="Source\Utils\IComparison.h" />
     <ClInclude Include="Source\Utils\Precomp.h" />
     <ClInclude Include="Source\Main.h" />
@@ -51,7 +57,7 @@
     <ClInclude Include="Source\Asserts\Redefinitions.h" />
     <ClInclude Include="Source\Asserts\ConfigDebug.h" />
     <ClInclude Include="Source\Asserts\ConfigReleaseChecked.h" />
-    <ClInclude Include="Source\Number\Number.h" />
+    <ClInclude Include="Source\Datatypes\Number.h" />
     <ClInclude Include="Source\Asserts\Invariants.h" />
     <ClInclude Include="Source\Polymorphic\IAny.h" />
     <ClInclude Include="Source\Polymorphic\IMany.h" />
