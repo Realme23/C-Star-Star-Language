@@ -9,7 +9,7 @@
 //Whether to enable compiler assumption hints
 #define __ENABLE_ASSUMES 0 
 //Whether to allow known broken code
-#define __NO_FIXME true 
+#define __NO_FIXME_PANIC true 
 
 //Whether to use __SLOW_BIGNUM, __FAST_BIGNUM or __NO_BIGNUM
 #define __USE_BIGNUMS __SLOW_BIGNUM
@@ -35,8 +35,8 @@
 
 //Indicate known, broken code
 //Disable before release
-//Only panic if __NO_FIXME is disabled
-#define FIXME(...) do { if(__NO_FIXME) PANIC(__VA_ARGS__); } while(0)
+//Only panic if __NO_FIXME_PANIC is disabled
+#define FIXME(...) do { if(__NO_FIXME_PANIC) PANIC(__VA_ARGS__); } while(0)
 
 
 #ifdef __cplusplus

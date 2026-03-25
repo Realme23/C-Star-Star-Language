@@ -24,11 +24,14 @@
     <ClCompile Include="Source1.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="generationalpointer.cpp">
+    <ClCompile Include="GenerationalPointer.cpp">
       <Filter>Utils</Filter>
     </ClCompile>
     <ClCompile Include="AssertF.cpp">
       <Filter>Utils</Filter>
+    </ClCompile>
+    <ClCompile Include="IComparison.cpp">
+      <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
@@ -38,8 +41,11 @@
     <ClInclude Include="source1.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="generationalpointer.h">
+    <ClInclude Include="GenerationalPointer.h">
       <Filter>Utils</Filter>
+    </ClInclude>
+    <ClInclude Include="IComparison.h">
+      <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>
