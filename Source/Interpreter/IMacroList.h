@@ -33,7 +33,5 @@ namespace c_star_star {
             c_star_star::polymorphic::IMany prepared;
             bool _lock = false;
         };
-
-
 	}
 }

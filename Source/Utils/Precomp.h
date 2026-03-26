@@ -23,7 +23,7 @@
 //Lazy function lib
 #include <boost/phoenix.hpp>
 //Hasher lib
-#include <boost/container_hash/hash.hpp>
+//#include <boost/container_hash/hash.hpp>
 //Lightweight threads lib
 //#include <boost/fiber/fiber.hpp>
 #undef min
