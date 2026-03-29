@@ -152,7 +152,7 @@ namespace c_star_star {
 		}
 
 		//Return the minimum height for the tuple (The lowest index with a non-zero value)
-		//Returns (0, min) as the min height if found, (1, _) if not
+		//Returns (min, 0) as the min height if found, (0, 1) if not
 		Tuple Tuple::getMinHeight(const Tuple& a) {
 			number_ min = 0;
 			bool found = false;

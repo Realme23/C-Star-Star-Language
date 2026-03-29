@@ -30,6 +30,7 @@
 *   Describe a higher-level language, representing an "optimization contract" over the lower-level language
 *       describes the allowed optimizations of the implemented code
 *       include theories and static_asserts; describe the allowed/expected behaviours
+*       use constants from the heritable meta-context to describe compiler passes to apply different compiler passes
 */
 
 //Optimizations:
@@ -127,6 +128,7 @@ public:
         return !(*this == other);
     }
 };
+
 template<>
 struct std::hash<SequencePoint> {
     size_t operator()(const SequencePoint& other) const
@@ -142,109 +144,6 @@ struct std::hash<SequencePoint> {
 // Locked sequences cannot be further attached to or later unlocked
 //TODO: Use tags and domains to enforce numerical locks (ie tag an event A with 4, when adding B after C (and C after A) assert that B's value > 4)
 //TODO: Lock a domain permanently, no more inputs into it, and/or no more outputs from it
-class Sequence {
-public:
-    //Start a new sequencepoint, with nothing pointing to it
-    SequencePoint newSequencePointStart() {
-        FIXME("Add locking, not done yet");
-        SequencePoint SP;
-        SP.id = ++totalSequencePoints;
-        return SP;
-    }
-
-    //Associate 2 preexisting sequence points (assert if already has an after)
-    void insertNewLink(SequencePoint before, SequencePoint after) {
-        ASSUME(not isInBeforeAfter(before), "Should not reassign already assigned SequencePoint!");
-        ASSUME(not isInSelectionNodes(before), "Should not reassign already assigned SequencePoint!");
-        beforeAfter.insert({ before, after });
-    }
-
-    //Create a new sequence point, associate it to "before" and return the new point
-    SequencePoint newSequencePointFollower(SequencePoint before) {
-        SequencePoint after = newSequencePointStart();
-        insertNewLink(before, after);
-        return after;
-    }
-
-    //Insert a new sequence point with many follows
-    SequencePoint newSequencePointChoice(SequencePoint before, IMany sp) {
-        SequencePoint after = newSequencePointStart();
-        insertNewLink(before, after);
-        selectionNodes.insert({ after, sp });
-        return after;
-    }
-
-    //Follow a single sequence point
-    //If no follower, return EmptyAny
-    //Otherwise, if simple, return the next point
-    //Otherwise, if comnplex, return the zeroth choice
-    IAny followSequencePointSimple(SequencePoint before) {
-        if (not isInBeforeAfter(before))
-            return {};
-        else if (isInBeforeAfter(before)) {
-            SequencePoint after = beforeAfter.at(before);
-            return IAny{ after };
-        }
-        UNREACHABLE("Cases covered!");
-    }
-
-    IAny followSequencePointChoice(SequencePoint before, number_ choice) {
-        if (not isInSelectionNodes(before))
-            return IAny{};
-        IMany choices = selectionNodes[before];
-        choices.AssertAllType<SequencePoint>("Must all be SequencePoints");
-        if (choices.SizeVector() < to_size_t(choice))
-            return IAny{};
-        SequencePoint result = choices.nthElementVector(choice).GetCppType<SequencePoint>("Expected SequencePoint");
-        return IAny{ result };
-    }
-
-    //Follow a choice point, by selecting a choice number_ (0 -> 0th choice, 1 -> 1st choice etc)
-    //If the point is not a choice point, only 0 is a valid choice (simple follow)
-    //If the index is invalid, return EmptyAny
-    IAny followSequencePointAggregate(SequencePoint before, number_ choice) {
-        if (choice < 0)
-            return IAny{};
-
-        if (not isInBeforeAfter(before) and not isInSelectionNodes(before))
-            return IAny{};
-        
-        
-        CASES_TRUE(isInBeforeAfter(before), isInSelectionNodes(before));
-        if (isInBeforeAfter(before)) {
-            if (choice > 0)
-                return IAny{};
-            return followSequencePointSimple(before);
-        }
-        else if (isInSelectionNodes(before)) {
-            if (selectionNodes[before].SizeVector() < to_size_t(choice))
-                return IAny{};
-
-        }
-    }
-
-private:
-    //A single-key multi-value map from after-points to before-points
-    std::unordered_map<SequencePoint, SequencePoint> beforeAfter;
-    //A list of nodes with multiple outputs
-    std::unordered_map<SequencePoint, IMany> selectionNodes;
-    //A number_ associated to each ordering, can be used to enforce far-apart before/after relations
-    std::unordered_map<SequencePoint, number_> orderingAssertNumber;
-    static number_ totalSequencePoints;
-
-    //If beforeAfter has a "before"
-    bool isInBeforeAfter(SequencePoint before) const {
-        return not (beforeAfter.contains(before));
-    }
-
-    //If selectionNodes has a "before"
-    bool isInSelectionNodes(SequencePoint before) const {
-        return not (selectionNodes.contains(before));
-    }
-};
-
-number_ Sequence::totalSequencePoints = 0;
-
 
 //Builds a Function from C++ code
 class FunctionBuilder {
@@ -923,51 +822,6 @@ static FunctionBuilder PointwiseAbs(FunctionBuilder base) {
     return abs;
 }
 
-//A tuple variable that always evaluates f[input_] = value
-//Can be used to represent types
-class ConstrainedTuple {
-    Function Process;
-    Tuple Target;
-public:
-    ConstrainedTuple(Function Process, Tuple Target) : Process(Process), Target(Target) {}
-    void AssertTuple(Tuple T) {
-        Tuple test = Process(T);
-        IComparisonResult x = Tuple::isEqual(test, Target);
-        if (+x) {
-            return;
-        }
-        else if (!x) {
-            std::string message = "";
-            message += "Assertion failure!";
-            message += "\nThe tested Tuple is: ";
-            message += T.to_str();
-            message += "\nThe function evaluation is: ";
-            message += test.to_str();
-            message += "\nThe target is: ";
-            message += Target.to_str();
-            PANIC(message.c_str());
-            return;
-        }
-        else {
-            UNREACHABLE("Is known");
-        }
-    }
-};
-
-//Mini-class to aid inline construction
-class ConstrainedTupleTarget {
-    friend class ConstrainedTuple;
-public:
-    Tuple target;
-    ConstrainedTupleTarget(FunctionBuilder::PolyTuple input) : target(input) {}
-};
-
-ConstrainedTuple operator&=(FunctionBuilder fB, ConstrainedTupleTarget ctt) {
-    return ConstrainedTuple{ fB.buildFunction(), ctt.target };
-}
-
-ConstrainedTupleTarget ctt_(FunctionBuilder::PolyTuple input) { return ConstrainedTupleTarget(input); }
-
 //Convert a string to a tuple
 Tuple parse_tuple(const std::string& is)
 {
@@ -996,284 +850,109 @@ Tuple parse_tuple(const std::string& is)
     return T;
 }
 
-class SequencedCall;
-
-//Tie multiple tuples into 1
-class SequenceTie {
-    IMany Tuples;
+class Sequence {
 public:
-    //Retrieve the tied tuple for evaluation
-    Tuple ExecuteTie() {
-        //Convert a, b, c, into:
-        //-3: a[-1], -2: b[-1], -1: c[-1], 0: a[0], 1: b[0], 2: c[0], 3: a[1], ...
-        //Map index i of Tuple j to j + (i * n)
-        Tuples.AssertAllType<Tuple>("Must store tuples!");
-        const number_ n = Tuples.SizeVector();
-        if (n == 0) {
-            return Tuple{};
-        }
-        auto map_target_index = [n](number_ in_index, number_ in_tuple)->number_ { return (in_index * n) + in_tuple; };
-        auto map_get_index = [n](number_ out_index)->std::pair<number_, number_> { return { out_index / n, out_index % n }; };
-        number_ maxHeight = 0;
-        number_ minHeight = 0;
-        for (const IAny& Tx : Tuples.VectorIterate()) {
-            const Tuple& T = Tx.GetCppType<Tuple>("Must only store Tuples!");
-            using namespace std;
-            maxHeight = max(maxHeight, Tuple::getMaxHeight(T).GetNumberConst_Index(0));
-            minHeight = min(minHeight, Tuple::getMinHeight(T).GetNumberConst_Index(0));
-        }
-        Tuple ret;
-        for (number_ i = (minHeight - 1) * n; i <= maxHeight * n; i++) {
-            number_ a = 0, b = 0;
-            auto z = map_get_index(i);
-            a = z.first; b = z.second;
-            ASSERT(map_target_index(a, b) == i, "Must be reversible functions");
-            Tuple get = Tuples.nthElementVector(b).GetCppType<Tuple>("Must store Tuples!");
-            ret.GetNumber_Index(i) = get.GetNumber_Index(a);
-        }
-        return ret;
+    //Start a new sequencepoint, with nothing pointing to it
+    SequencePoint newSequencePointStart() {
+        FIXME("Add locking, not done yet");
+        SequencePoint SP;
+        SP.id = ++totalSequencePoints;
+        return SP;
     }
-    //A function for retrieving the nth Tuple when max are stored
-    static FunctionBuilder FunctionBuilderUntie(number_ n, number_ max) { 
-        TODO;
+
+    //Associate 2 preexisting sequence points (assert if already has an after)
+    void insertNewLink(SequencePoint before, SequencePoint after) {
+        ASSUME(not isInBeforeAfter(before), "Should not reassign already assigned SequencePoint!");
+        ASSUME(not isInSelectionNodes(before), "Should not reassign already assigned SequencePoint!");
+        beforeAfter.insert({ before, after });
     }
-    SequenceTie(std::initializer_list<Tuple> l) : Tuples(PolyMany(l)) {}  //Construct a collection of variables
-};
 
-//a + b = (Untie(0) + Untie(1))(SequenceTie(a, b))
-
-//Represent variables, tuples, streams etc
-//Allocate within the "function tuple"
-//Each terminal is a name for a piece of a Tuple; dehardcode the allocator
-//Have explicit "tie" and "get" functions for Tuples -> Tuple and Tuple -> Tuples
-class SequencedTerminal {
-public:
-    auto operator=(SequencedTerminal) = delete;
-    static number_ max_id;
-    number_ id;
-
-    SequencedTerminal() { id = ++max_id; }
-    friend bool operator==(const SequencedTerminal& lhs, const SequencedTerminal& rhs) { return lhs.id == rhs.id; }
-};
-number_ SequencedTerminal::max_id = 0;
-
-//A sequence with associated code
-//Has simple sentences (SequenceTerminal = Function(SequenceTerminal))
-//If-else statements (if F[a] == b) {} else {};
-//Strong loops (for(i = 0; i != n; i++) {no writes to i};)
-//Weak loops (while(...) {}) (Maybe runs forever)
-class SequencedExecution {
-public:
-    Sequence Flow;
-    enum class SequencedExecutionTypes: int {
-        Uninitialized,  //Unitialized variable (not to be used)
-        SimpleAssign,   //Terminal = Function(terminals) (void)
-        Stream,         //Read from a stream into a terminal
-        Chain,          //A list of SequencedExecutions (void)
-        If,             //A forward branch (has a mandatory else) (void)
-        While,          //A while loop, arbitrary strength (void)
-        For,            //A strong for loop (i = 0 to n, i++) { no writes to i; } (void)
-    } ExecutionType;
-    IMany data;
-    static number_ max_id;
-    number_ id;
-
-public:
-    SequencedExecution() { id = ++max_id; ExecutionType = SequencedExecutionTypes::Uninitialized; }
-    SequencedExecution(std::initializer_list<SequencedExecution>) : SequencedExecution() {};
-    SequencedCall operator()(std::initializer_list<SequencedTerminal>);
-    //Identity
-    friend bool operator==(const SequencedExecution& lhs, const SequencedExecution& rhs) { return lhs.id == rhs.id; }
-};
-number_ SequencedExecution::max_id = 0;
-
-//Represent an expression, involving (possibly) multiple SequencedTerminals
-class SequencedFunctionCall {
-    IMany vars;                     //Store a list of SequencedFunctionCalls
-    FunctionBuilder var_Function;   //The function over the tied together variables
-
-public:
-    SequencedFunctionCall() {}
-    //Build a functioncall of two functioncalls
-    SequencedFunctionCall(SequencedTerminal st) : vars(PolyMany({ st })) { var_Function = var_; }
-    friend SequencedFunctionCall operator+(SequencedFunctionCall lhs, SequencedFunctionCall rhs) {
-        SequencedFunctionCall SFC;
-        SFC.vars.clear();
-        SFC.vars.InsertTypeEnd(lhs);
-        SFC.vars.InsertTypeEnd(rhs);
-        SFC.var_Function = SequenceTie::FunctionBuilderUntie(0, 2) + SequenceTie::FunctionBuilderUntie(1, 2);
-        //TODO_("Fix");
-        return SFC;
+    //Create a new sequence point, associate it to "before" and return the new point
+    SequencePoint newSequencePointFollower(SequencePoint before) {
+        SequencePoint after = newSequencePointStart();
+        insertNewLink(before, after);
+        return after;
     }
-    friend SequencedFunctionCall operator+(SequencedFunctionCall lhs, SequencedTerminal rhs) { return operator+(lhs, SequencedFunctionCall(rhs)); }
-    friend SequencedFunctionCall operator+(SequencedTerminal lhs, SequencedFunctionCall rhs) { return operator+(SequencedFunctionCall(lhs), rhs); }
-    friend bool operator==(const SequencedFunctionCall& lhs, const SequencedFunctionCall& rhs) { return +IMany::CompareVector(lhs.vars, rhs.vars) and +(lhs.var_Function == rhs.var_Function); }
-};
 
-SequencedFunctionCall operator+(SequencedTerminal lhs, SequencedTerminal rhs) { return operator+(SequencedFunctionCall(lhs), SequencedFunctionCall(rhs)); }
-
-//An execution-context defined manner of collapsing into a single value
-//eg console input, network management etc
-//Use sequences to lock its value as an optimization barrier
-//Also use state-machine-esque types to lock the sequence
-class SequencedStream {
-    enum class StreamKinds {
-        uninitialized,
-        std_cin,
-        std_cout,
-    } StreamType = StreamKinds::uninitialized;
-public:
-    SequencedStream(PolyAny t) {
-        if (t == &std::cin) {
-            StreamType = StreamKinds::std_cin;
-            return;
-        }
-        else if (t == &std::cout) {
-            StreamType = StreamKinds::std_cout;
-            return;
-        }
-        PANIC("Incorrect stream constructor");
+    //Insert a new sequence point with many follows
+    SequencePoint newSequencePointChoice(SequencePoint before, IMany sp) {
+        SequencePoint after = newSequencePointStart();
+        insertNewLink(before, after);
+        selectionNodes.insert({ after, sp });
+        return after;
     }
-    SequencedStream(const SequencedStream&) = default;
 
-    //Read the next tuple from cin
-    Tuple ReadNextTuple() {
-        CASES(StreamType,
-            StreamKinds::std_cin, 
-            StreamKinds::std_cout);
-        if (StreamType == StreamKinds::std_cin) {
-            std::string z;
-            return parse_tuple(z);
+    //Follow a single sequence point
+    //If no follower, return EmptyAny
+    //Otherwise, if simple, return the next point
+    //Otherwise, if comnplex, return the zeroth choice
+    IAny followSequencePointSimple(SequencePoint before) {
+        if (not isInBeforeAfter(before))
+            return {};
+        else if (isInBeforeAfter(before)) {
+            SequencePoint after = beforeAfter.at(before);
+            return IAny{ after };
         }
-        else if (StreamType == StreamKinds::std_cout) {
-            PANIC("Read from stdout");
-            return Tuple{};
-        }
-        PANIC("UnknownStreamType!");
+        UNREACHABLE("Cases covered!");
     }
-    void WriteNextTuple(Tuple T) {
-        CASES(StreamType,
-            StreamKinds::std_cin,
-            StreamKinds::std_cout);
-        if (StreamType == StreamKinds::std_cin) {
-            PANIC("Write to stdin");
-            return;
-        }
-        else if (StreamType == StreamKinds::std_cout) {
-            std::cout << T.to_str();
-            return;
-        }
-        PANIC("UnknownStreamType!");
+
+    IAny followSequencePointChoice(SequencePoint before, number_ choice) {
+        if (not isInSelectionNodes(before))
+            return IAny{};
+        IMany choices = selectionNodes[before];
+        choices.AssertAllType<SequencePoint>("Must all be SequencePoints");
+        if (choices.SizeVector() < to_size_t(choice))
+            return IAny{};
+        SequencePoint result = choices.nthElementVector(choice).GetCppType<SequencePoint>("Expected SequencePoint");
+        return IAny{ result };
     }
-    friend bool operator==(SequencedStream a, SequencedStream b) { return a.StreamType == b.StreamType; }
-};
 
-//Set a mutable variable, inside a Sequence
-//LHS accepts only terminals
-//RHS accepts expressions ie function calls
-SequencedExecution operator<=(SequencedTerminal& lhs, SequencedFunctionCall rhs) {
-    SequencedExecution ret;
-    ret.ExecutionType = SequencedExecution::SequencedExecutionTypes::SimpleAssign;
-    ret.data.clear();
-    ret.data.InsertTypeEnd(lhs);
-    ret.data.InsertTypeEnd(rhs);
-    return ret;
-}
+    //Follow a choice point, by selecting a choice number_ (0 -> 0th choice, 1 -> 1st choice etc)
+    //If the point is not a choice point, only 0 is a valid choice (simple follow)
+    //If the index is invalid, return EmptyAny
+    IAny followSequencePointAggregate(SequencePoint before, number_ choice) {
+        if (choice < 0)
+            return IAny{};
 
-//Represent the result of a SequenceExecution() - used as part of the definition
-class SequencedCall {
-    IMany terminal;
-public:
-    SequencedExecution operator()(std::initializer_list<SequencedExecution> l);
-    SequencedCall(std::initializer_list<SequencedTerminal> l): terminal(PolyMany(l)) {}
-};
-//The function definition object resulting from a call f({parameters})
-//Use by attaching ({definition...}) to it
-SequencedCall SequencedExecution::operator()(std::initializer_list<SequencedTerminal> l) { return SequencedCall(l); }
-//The function code resulting from f({parameters})({definition})
-SequencedExecution SequencedCall::operator()(std::initializer_list<SequencedExecution> l) {
-    SequencedExecution ret;
-    ret.ExecutionType = SequencedExecution::SequencedExecutionTypes::Chain;
-    ret.data.clear();
-    for (const SequencedExecution& x : l) {
-        ret.data.InsertTypeEnd(x);
+        if (not isInBeforeAfter(before) and not isInSelectionNodes(before))
+            return IAny{};
+
+
+        CASES_TRUE(isInBeforeAfter(before), isInSelectionNodes(before));
+        if (isInBeforeAfter(before)) {
+            if (choice > 0)
+                return IAny{};
+            return followSequencePointSimple(before);
+        }
+        else if (isInSelectionNodes(before)) {
+            if (selectionNodes[before].SizeVector() < to_size_t(choice))
+                return IAny{};
+
+        }
     }
-    return ret;
-}
 
-//Assign a constant to a terminal
-SequencedExecution operator<=(SequencedTerminal Terminal, FunctionBuilder::PolyTuple Tuple_) {
-    SequencedExecution SE;
-    SE.ExecutionType = SequencedExecution::SequencedExecutionTypes::SimpleAssign;
-    SE.data.clear();
-    SE.data.InsertTypeEnd(Terminal);
-    SE.data.InsertTypeEnd<Tuple>(Tuple_);
-    return SE;
-}
+private:
+    //A single-key multi-value map from after-points to before-points
+    std::unordered_map<SequencePoint, SequencePoint> beforeAfter;
+    //A list of nodes with multiple outputs
+    std::unordered_map<SequencePoint, IMany> selectionNodes;
+    //A number_ associated to each ordering, can be used to enforce far-apart before/after relations
+    std::unordered_map<SequencePoint, number_> orderingAssertNumber;
+    static number_ totalSequencePoints;
 
-//Read from a stream to a terminal
-SequencedExecution operator<<(SequencedTerminal ST, SequencedStream SS) {
-    SequencedExecution SE;
-    SE.data.clear();
-    SE.ExecutionType = SequencedExecution::SequencedExecutionTypes::Stream;
-    SE.data.InsertTypeEnd(ST);
-    SE.data.InsertTypeEnd(SS);
-    return SE;
-}
+    //If beforeAfter has a "before"
+    bool isInBeforeAfter(SequencePoint before) const {
+        return not (beforeAfter.contains(before));
+    }
 
-//Used for return_ <= ...
-class ReturnType{} return_;
-//Set the return terminal
-SequencedExecution operator<=(ReturnType, SequencedTerminal) { TODO; };
-
-//Use operator() to get the condition: Function(Tuple) = Value
-//Use another operator() to get the first alternative: if(cond) then alt_1
-//Use another operator() to get the second alternative: if(cond) then alt_1 else alt_2
-class SequenceIfAlt2 {
-    Function F;
-    SequencedTerminal input;
-    Tuple target;
-    SequencedExecution if_1;
-public:
-    SequencedExecution operator()(SequencedExecution if_2) {}
-    SequenceIfAlt2(Function F, SequencedTerminal input, Tuple target, SequencedExecution if_1) :
-        F(F), input(input), target(target), if_1(if_1) {}
+    //If selectionNodes has a "before"
+    bool isInSelectionNodes(SequencePoint before) const {
+        return not (selectionNodes.contains(before));
+    }
 };
 
-class SequenceIfAlt1 {
-    Function F;
-    SequencedTerminal input;
-    Tuple target;
-public:
-    SequenceIfAlt2 operator()(SequencedExecution if_1) { return SequenceIfAlt2(F, input, target, if_1); }
-    SequenceIfAlt1(Function F, SequencedTerminal input, Tuple target): F(F), input(input), target(target) {}
-};
-
-SequenceIfAlt1 if_(Function F, SequencedTerminal input, Tuple target) { return SequenceIfAlt1(F, input, target); }
-
-class SequenceWhile {
-    Function F; SequencedTerminal input; Tuple target;
-public:
-    SequencedExecution operator()(SequencedExecution loop) { TODO; }
-    SequenceWhile(Function F, SequencedTerminal input, Tuple target): F(F), input(input), target(target) {}
-};
-
-SequenceWhile while_(Function F, SequencedTerminal input, Tuple target) { return SequenceWhile(F, input, target); }
-
-
-class SequenceFor {
-    SequencedTerminal input, target;
-public:
-    SequencedExecution operator()(SequencedExecution loop) { TODO; }
-    SequenceFor(SequencedTerminal input, SequencedTerminal target) : input(input), target(target) {}
-};
-
-SequenceFor for_(SequencedTerminal input, SequencedTerminal target) { return SequenceFor(input, target); }
+number_ Sequence::totalSequencePoints = 0;
 
 int main() {
 
 }
-
-#undef ASSERT
-#undef ASSUME
-#undef UNREACHABLE
