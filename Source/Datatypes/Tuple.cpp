@@ -1,7 +1,7 @@
 #include "Tuple.h"
 
 namespace std {
-	size_t hash<c_star_star::tuples::Tuple>::operator()(const c_star_star::tuples::Tuple& x) const
+	size_t hash<c_star_star::data_types::Tuple>::operator()(const c_star_star::data_types::Tuple& x) const
 	{
 		using namespace boost::multiprecision;
 		using namespace std;
@@ -9,12 +9,12 @@ namespace std {
 	}
 }
 
-size_t hash_value(c_star_star::tuples::Tuple x) {
-	return std::hash<c_star_star::tuples::Tuple>()(x);
+size_t hash_value(c_star_star::data_types::Tuple x) {
+	return std::hash<c_star_star::data_types::Tuple>()(x);
 }
 
 namespace c_star_star {
-	namespace tuples {
+	namespace data_types {
 
 		Tuple::Tuple(number_ a) { GetNumber_Index(0) = a; }
 
@@ -61,13 +61,8 @@ namespace c_star_star {
 			return +Tuple::isEqual(a, b);
 		}
 
-		//Is a Lexicographically< b? 
-		bool operator<(const Tuple& a, const Tuple& b) {
-			return +Tuple::isLess<false>(a, b);
-		}
-
 		//Is it zero?
-		c_star_star::tribool::IComparisonResult Tuple::isZero(const Tuple& a) {
+		c_star_star::interpreter::IComparisonResult Tuple::isZero(const Tuple& a) {
 			for (const std::pair<number_, number_>& x : a.data) {
 				if (x.second != 0) {
 					return false;
@@ -77,7 +72,7 @@ namespace c_star_star {
 		}
 
 		//Does it have only 1 non-zero value at the specified index?
-		c_star_star::tribool::IComparisonResult Tuple::hasSingleLimb(const Tuple& a, const number_ at) {
+		c_star_star::interpreter::IComparisonResult Tuple::hasSingleLimb(const Tuple& a, const number_ at) {
 			for (const std::pair<number_, number_>& x : a.data) {
 				if (x.first != at and x.second != 0) {
 					return false;

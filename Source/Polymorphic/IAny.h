@@ -5,7 +5,7 @@
 namespace c_star_star {
 	namespace polymorphic {
 
-		using IComparisonResult = tribool::IComparisonResult;
+		using IComparisonResult = interpreter::IComparisonResult;
 		class IEmptyValue;
 		class IAny;
 		struct PolyAny;

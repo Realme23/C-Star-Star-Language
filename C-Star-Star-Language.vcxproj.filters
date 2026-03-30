@@ -42,7 +42,7 @@
     <ClCompile Include="Source\Datatypes\Tuple.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="Source\Datatypes\Function.cpp">
+    <ClCompile Include="Source\Functions\Function.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
@@ -86,7 +86,7 @@
     <ClInclude Include="Source\Datatypes\Tuple.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="Source\Datatypes\Function.h">
+    <ClInclude Include="Source\Functions\Function.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

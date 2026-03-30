@@ -19,7 +19,7 @@
     </ProjectConfiguration>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="Source\Datatypes\Function.cpp">
+    <ClCompile Include="Source\Functions\Function.cpp">
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
     </ClCompile>
@@ -56,7 +56,7 @@
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="Source\Datatypes\Function.h" />
+    <ClInclude Include="Source\Functions\Function.h" />
     <ClInclude Include="Source\Datatypes\Tuple.h" />
     <ClInclude Include="Source\Interpreter\IMacroList.h" />
     <ClInclude Include="Source\Utils\IComparison.h" />

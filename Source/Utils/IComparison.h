@@ -2,14 +2,15 @@
 #include "../Main.h"
 
 namespace c_star_star {
-    namespace tribool {
+    namespace interpreter {
 
-        //A tribool type
+        //A interpreter type
         //Supports true, false and unknown
         //Supports asserting conversions to bool (asserts on Unknown)
         //Default construction to unknown
         class IComparisonResult;
-        //Utility class: Converts to and from IComparisonResult and bool
+
+        //Utility class: Autoconverts to and from IComparisonResult and bool
         class IComparisonToBool;
 
         class IComparisonResult {
@@ -94,8 +95,6 @@ namespace c_star_star {
 
 
         constexpr bool operator==(const IComparisonResult& lhs, const IComparisonResult& rhs);
-
-
 
         //Boolean operators, unknown-propagating
         //Boolean negation

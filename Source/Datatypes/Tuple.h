@@ -4,12 +4,14 @@
 
 namespace c_star_star {
     namespace functions {
-        class Function;
+        namespace core {
+            class Function;
+        }
     };
 };
 
 namespace c_star_star {
-	namespace tuples {
+	namespace data_types {
 
 		//A list of bigints
 		//Set/get
@@ -23,13 +25,9 @@ namespace c_star_star {
 
 			//Are they equal?
 			friend bool operator==(const Tuple& a, const Tuple& b);
-
-			//Is a Lexicographically< b? 
-			friend bool operator<(const Tuple& a, const Tuple& b);
-
 			friend bool operator!=(const Tuple& a, const Tuple& b);
 
-			friend class c_star_star::functions::Function;
+			friend class c_star_star::functions::core::Function;
 
 		public:
             std::map<number_, number_> data;
@@ -45,21 +43,16 @@ namespace c_star_star {
 			Tuple& operator=(const Tuple&);
 			Tuple& operator=(Tuple&&);
 
-			//Lexicographically compare two Tuples
-			//Returns true for a < b; false for a > b, weak for a == b
-			template<bool weak = false>
-			static c_star_star::tribool::IComparisonResult isLess(const Tuple& a, const Tuple& b);
-
 			//Set a tuple to a constant number_
 			static void setIndividualNumber(Tuple& a, number_ value);
 
 			std::string to_str();
 
 			//Is it zero?
-			static c_star_star::tribool::IComparisonResult isZero(const Tuple& a);
+			static c_star_star::interpreter::IComparisonResult isZero(const Tuple& a);
 
 			//Does it have only 1 non-zero value at the specified index?
-			static c_star_star::tribool::IComparisonResult hasSingleLimb(const Tuple& a, const number_ at = 0);
+			static c_star_star::interpreter::IComparisonResult hasSingleLimb(const Tuple& a, const number_ at = 0);
 
 			//Are they equal?
 			static bool isEqual(const Tuple& a, const Tuple& b);
@@ -80,84 +73,15 @@ namespace c_star_star {
 			//Return the minimum height for the tuple (The lowest index with a non-zero value)
 			//Returns (0, min) as the min height if found, (1, _) if not
 			static Tuple getMinHeight(const Tuple& a);
+
+			//Remove all zero elements
+			void normalize() {
+				std::erase_if(data, [](auto x)->bool { return x.second == 0; });
+				if (data.size() == 0)
+					*this = Tuple();
+				return;
+			}
 		};
-
-        //Lexicographically compare two Tuples
-        //Returns true for a < b; false for a > b, weak for a == b
-        template<bool weak>
-        c_star_star::tribool::IComparisonResult Tuple::isLess(const Tuple& a, const Tuple& b) {
-            if (+isEqual(a, b))
-                return weak;
-
-            Tuple startTa = getMaxHeight(a);
-            Tuple startTb = getMaxHeight(b);
-            Tuple endTa = getMinHeight(a);
-            Tuple endTb = getMinHeight(b);
-
-            //If a is zero, check the lead digit of b
-            if (+isZero(a)) {
-                number_ base = b.GetNumberConst_Index(startTb.GetNumberConst_Index(0));
-                if (base > 0)
-                    return true;
-                else if (base < 0)
-                    return false;
-                else if (base == 0)
-                    UNREACHABLE("Lead digit should not be zero!");
-            }
-
-            //If b is zero, check the lead digit of a
-            if (+isZero(b)) {
-                number_ base = a.GetNumberConst_Index(startTa.GetNumberConst_Index(0));
-                if (base > 0)
-                    return false;
-                else if (base < 0)
-                    return true;
-                else if (base == 0)
-                    UNREACHABLE("Lead digit should not be zero!");
-            }
-            ASSERT((not isZero(a)) and (not isZero(b)), "a and b should not be zero by this point!");
-
-            //Get the number_ with the bigger "height"
-            if (startTa.GetNumberConst_Index(0) > startTb.GetNumberConst_Index(0))
-                return false;
-            else if (startTa.GetNumberConst_Index(0) < startTb.GetNumberConst_Index(0))
-                return true;
-
-            //If they have the same height, compare the lead digit
-            number_ a_lead = a.GetNumberConst_Index(startTa.GetNumberConst_Index(0));
-            number_ b_lead = b.GetNumberConst_Index(startTb.GetNumberConst_Index(0));
-            number_ a_tail = a.GetNumberConst_Index(endTa.GetNumberConst_Index(0));
-            number_ b_tail = a.GetNumberConst_Index(endTb.GetNumberConst_Index(0));
-
-            if (a_lead > b_lead) {
-                return false;
-            }
-            else if (b_lead > a_lead) {
-                return true;
-            }
-            else if (a_lead == b_lead) {
-                //Same height, same lead digits
-                //Iteratively compare smaller digits
-                number_ index = startTa.GetNumberConst_Index(0);
-                //Compare upto the lowest tail
-                number_ end_index = std::min(endTa.GetNumberConst_Index(0), endTb.GetNumberConst_Index(0));
-                while (index-- >= end_index) {
-                    number_ a_indexed = a.GetNumberConst_Index(index);
-                    number_ b_indexed = b.GetNumberConst_Index(index);
-                    if (a_indexed > b_indexed) {
-                        return false;
-                    }
-                    else if (a_indexed < b_indexed) {
-                        return true;
-                    }
-                    else if (a_indexed == b_indexed) {
-                        continue;
-                    }
-                }
-                UNREACHABLE("Equality should be checked early!");
-            }
-            UNREACHABLE("No more cases left!");
-        }
 
         //A convenience class for constructing a tuple from a std::initializer_list
         class PolyTuple {
@@ -176,10 +100,8 @@ namespace c_star_star {
 }
 
 namespace std {
-    template <> struct hash<c_star_star::tuples::Tuple>
+    template <> struct hash<c_star_star::data_types::Tuple>
     {
-        size_t operator()(const c_star_star::tuples::Tuple& x) const;
+        size_t operator()(const c_star_star::data_types::Tuple& x) const;
     };
 }
-
-size_t hash_value(std::pair<c_star_star::functions::Function, c_star_star::tuples::Tuple> x);

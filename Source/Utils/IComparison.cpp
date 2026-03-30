@@ -1,13 +1,13 @@
 #include "IComparison.h"
 
 namespace c_star_star {
-    namespace tribool {
+    namespace interpreter {
         //Start:
-        //A tribool type
+        //A interpreter type
         //Supports true, false and unknown
         //Supports asserting conversions to bool (asserts on Unknown)
 
-            //Default construct: set to unknown
+        //Default construct: set to unknown
         constexpr IComparisonResult::IComparisonResult() : _isTrue(false), _isFilled(false) {
             ASSUME(isUnknown(), "Default constructed IComparisonResults must be unknown.");
         }

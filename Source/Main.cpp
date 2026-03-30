@@ -9,7 +9,7 @@
 #include "Polymorphic/IMany.cpp"
 #include "Interpreter/IMacroList.cpp"
 #include "Datatypes/Tuple.cpp"
-#include "Datatypes/Function.cpp"
+#include "Functions/Function.cpp"
 
 //TODOs:
 //Remove all IManys after prototyping
@@ -109,8 +109,8 @@
 
 using namespace c_star_star::polymorphic;
 using namespace c_star_star::number;
-using namespace c_star_star::tuples;
-using namespace c_star_star::tribool;
+using namespace c_star_star::data_types;
+using namespace c_star_star::interpreter;
 using namespace c_star_star::functions;
 
 //A tag class for sequence points
@@ -144,36 +144,6 @@ struct std::hash<SequencePoint> {
 // Locked sequences cannot be further attached to or later unlocked
 //TODO: Use tags and domains to enforce numerical locks (ie tag an event A with 4, when adding B after C (and C after A) assert that B's value > 4)
 //TODO: Lock a domain permanently, no more inputs into it, and/or no more outputs from it
-
-
-//Convert a string to a tuple
-Tuple parse_tuple(const std::string& is)
-{
-    TODO;
-    Tuple T;
-    using boost::spirit::qi::stream;
-    using boost::spirit::qi::stream_parser;
-    using boost::spirit::qi::parse;
-    using boost::spirit::qi::char_;
-    using boost::spirit::qi::space;
-    using boost::phoenix::push_back;
-    using boost::phoenix::ref;
-    using boost::phoenix::placeholders::_1;
-    //stream_parser<char, number_> num_parser;
-    auto num_parser = char_;
-
-    std::vector<number_> temp_num;
-    auto parse_action = [&](auto& ctx)->void {
-        temp_num.push_back(_attr(ctx));
-    };
-
-    //parse(is.begin(), is.end(), char_('[') >> *((+(char_ >> char_(':'))>> char_) % char_(',')) >> char_(']'));
-
-
-
-    return T;
-}
-
 class Sequence {
 public:
     //Start a new sequencepoint, with nothing pointing to it
@@ -276,6 +246,36 @@ private:
 };
 
 number_ Sequence::totalSequencePoints = 0;
+
+
+//Convert a string to a tuple
+Tuple parse_tuple(const std::string& is)
+{
+    TODO;
+    Tuple T;
+    using boost::spirit::qi::stream;
+    using boost::spirit::qi::stream_parser;
+    using boost::spirit::qi::parse;
+    using boost::spirit::qi::char_;
+    using boost::spirit::qi::space;
+    using boost::phoenix::push_back;
+    using boost::phoenix::ref;
+    using boost::phoenix::placeholders::_1;
+    //stream_parser<char, number_> num_parser;
+    auto num_parser = char_;
+
+    std::vector<number_> temp_num;
+    auto parse_action = [&](auto& ctx)->void {
+        temp_num.push_back(_attr(ctx));
+    };
+
+    //parse(is.begin(), is.end(), char_('[') >> *((+(char_ >> char_(':'))>> char_) % char_(',')) >> char_(']'));
+
+
+
+    return T;
+}
+
 
 int main() {
 
