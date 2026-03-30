@@ -1,7 +1,12 @@
 #pragma once
 #include "Number.h"
 #include "../Utils/IComparison.h"
-#include "Function.h"
+
+namespace c_star_star {
+    namespace functions {
+        class Function;
+    };
+};
 
 namespace c_star_star {
 	namespace tuples {
@@ -153,6 +158,20 @@ namespace c_star_star {
             }
             UNREACHABLE("No more cases left!");
         }
+
+        //A convenience class for constructing a tuple from a std::initializer_list
+        class PolyTuple {
+            Tuple T;
+        public:
+            PolyTuple(Tuple T);
+
+            PolyTuple(number_ n);
+            template<std::integral Int>
+            PolyTuple(Int n) : T(number_(n)) {}
+            operator Tuple() const;
+
+            PolyTuple(std::initializer_list<number_> l);
+        };
 	}
 }
 

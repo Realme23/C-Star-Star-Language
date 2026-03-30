@@ -173,5 +173,17 @@ namespace c_star_star {
 		bool operator!=(const Tuple& a, const Tuple& b) {
 			return not Tuple::isEqual(a, b);
 		}
+
+		PolyTuple::PolyTuple(Tuple T) : T(T) {}
+
+		PolyTuple::PolyTuple(number_ n) : T(n) {}
+		PolyTuple::operator Tuple() const { return T; }
+
+		PolyTuple::PolyTuple(std::initializer_list<number_> l) {
+			auto l_iterator = l.begin();
+			for (int i = 0; l_iterator != l.end(); i++, l_iterator++) {
+				T.data[i] = *l_iterator;
+			}
+		}
 	}
 }
