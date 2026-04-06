@@ -1,4 +1,3 @@
-
 #include "Main.h"
 
 #include "Asserts/ConfigReleaseChecked.h"
@@ -21,91 +20,24 @@
 //Combine SequenceBuilder and FunctionBuilder; Separate out Function and Sequence execution
 //A class to implement the static max_id; map<id, data>; value() = map[id] pattern (Use a single max_id for all classes)
 
+
 //Design:
 /*
-*   Describe an imperative, low-level language over Tuples, with determinism, purity, and static_asserts
-*       Includes Sequences, Functions, Sequence Executions
-*       The "type" of a sequence is the full definition of it, the type of a pure function is the map of its inputs to outputs
-*   Describe a "heritable meta-context" describing impure additions to the low-level language and hygienic macros
-*   Describe a higher-level language, representing an "optimization contract" over the lower-level language
-*       describes the allowed optimizations of the implemented code
-*       include theories and static_asserts; describe the allowed/expected behaviours
-*       use constants from the heritable meta-context to describe compiler passes to apply different compiler passes
+Describe an imperative, low-level language over Tuples, with determinism, purity, and static_asserts
+    Includes Sequences, Functions, Sequence Executions, Asserts
+    The "type" of a sequence is the full definition of it, the type of a pure function is the map of its inputs to outputs
+    Goal: describe pure, verifiable, multithreaded computations over all platforms/devices
+Describe a "heritable meta-context" describing impure additions to the low-level language and hygienic macros
+    Includes modules and a build system
+    Module definitions are based on the high-level description
+    Goal: build/package code, source-level security, describe meta/environment-information and generate/interpret/transform modules
+    Design constraint: Move all computation to the low-level language and all specification in the higher-level language, include the interpreter
+Describe a higher-level language, representing an "optimization contract" over the lower-level language
+    describes the allowed optimizations of the implemented code
+    include theories and static_asserts; describe the allowed/expected behaviours
+    use constants from the heritable meta-context to describe compiler passes to apply different compiler passes
+    can describe which plugins can be compiled together
 */
-
-//Optimizations:
-
-//"Free" optimizations: (Can be performed without non-trivial search optimizations)
-//Propagate constants fully
-//Replace all variables with (function+state) such that it evaluates equal to the variable at that value
-//Monomorphize all function calls on the call-site  f(int a, int b) -> f(3, b) etc
-//Monomorphize all theories (eg int a, b; -> int1 a; int2 b;)
-//Strengthen all theories from the end  int c := a + b -> int(a + b) c := a + b
-// Reduce function-types of outputs' codomain to match function-types of inputs' domain
-//Delay all computation "production" until "consumption" in the sequence
-//Weaken all theories to only match requirements for all "consumption"
-
-//Purify pass:
-//Strength reduction of bounded loops to for(i = 0; i != ...; i++) { /*No writes to i*/; }
-//Eliminate all bounded recursion with monomorphization (ie f(3, a) = f(2, b) + c becomes f_3(a) = f_2(b) + c)
-//  Transform to non-recursive functions with basecases
-//Sequence-Invariant code motion: Useful for loops and branches
-//  Moves code representing constraints "outside" sequences that retain those constraints
-//Replace all variables with "const shadowing CoWs"
-//  ie a = a+1
-//   to
-//  a2 = a1 + 1
-//Merge all unbounded loops program-wide into a single unbounded loop with a single inductor+local variables
-//  eg convert 
-//      generate(x):
-//          co_return next x;
-//      generate(y):
-//          co_return next y;
-//      generate(z):
-//          generate(x);
-//          generate(y);
-//          co_return next z;
-//      to
-//      generate(z):
-//          next x;
-//          next y;
-//          co_return next z;
-
-//Search pass: (Opposites)
-//Monomorphize functions <-> deduplicate ("template-ize") functions
-//Inline function calls <-> extract function calls
-//Cache vs "functionize" pure variables
-//eg
-//  a = b + c
-//  f(a)
-// to/from
-//  f(b + c)
-//Complete "conditional" theories by solving for the unconditional result, to facilitate "Sequence-invariant code motion"
-
-//Representation pass:
-//Represent theories with restrictions on Tuples (ie f[input] = fixed)
-//Solve for theory representations by solving (f[input] = fixed)
-// Functions with multiple inputs (by tying multiple inputs together)
-// Functions that are partially applied are functions with some inputs specified
-// 
-//Describe "infinities" with generators, switch between different stateless representations
-//Purify all computation with "pure" and "impure" sections, separating their cones of influence
-// 
-// Equivalence class relations split the input into two factors; an equivalence member and an equivalence result
-// The "equivalence result" is a single unique representation of the equivalence class
-// Different members of the equivalence class can be represented with equivalence results, and can be compared (both == and !=) by comparing the equivalence result
-// The equivalence result can be found by brute-forcing the solution to "equivalence_class[a] == equivalence_class[b]"
-//
-//eg can represent infinity with x such that x - 1 = x (the result of x - 1 has been generated by the definition)
-//Representing a generator over a different domain needs (possibly hidden) statefulness, but without representation is stateless
-//eg Infinity can also be represented like x such that n < x for all n in N.
-//  This can be "approximated statefully" by using a number_ n', which is actually in N, but is bigger than all elements in the discourse.
-//  These approximations have to be stateful because eg the "discourse" is stateful (eg as new inputs are received, the "largest" number_ has to be increased)
-//  Generating a "stateful" approximation from a theory description can be accomplished by brute force solving the constraints
-
-//For proving the consistency of axiom sets, assign each derivation with a new number_ n in N. When the independence of each derivation is proved from n, then the axioms satisfy the theory of term-rewriting systems, and hence are valid axiomatic systems
-//Inconsistent models can be "salvaged" by a different model that has a dependence on the number_ n. This is horizontal shift, not a vertical shift.
-//If a model is inconsistent, it can still produce useful results, by explicitizing the dependence on n, and weakening its theory from "free term-rewriting systems)
 
 using namespace c_star_star::polymorphic;
 using namespace c_star_star::number;
@@ -116,7 +48,7 @@ using namespace c_star_star::functions;
 //A tag class for sequence points
 class SequencePoint {
     number_ id;
-    friend class  Sequence;
+    friend class Sequence;
     friend struct std::hash<SequencePoint>;
 public:
     bool operator==(const SequencePoint& other) const
@@ -144,6 +76,9 @@ struct std::hash<SequencePoint> {
 // Locked sequences cannot be further attached to or later unlocked
 //TODO: Use tags and domains to enforce numerical locks (ie tag an event A with 4, when adding B after C (and C after A) assert that B's value > 4)
 //TODO: Lock a domain permanently, no more inputs into it, and/or no more outputs from it
+//TODO: Mix parallelizability and choice
+//  Choice: GOTOs
+//  Parallelizability: Run multiple choices together
 class Sequence {
 public:
     //Start a new sequencepoint, with nothing pointing to it
@@ -277,6 +212,186 @@ Tuple parse_tuple(const std::string& is)
 }
 
 
+
 int main() {
 
+    /*
+    //Classes and definitions
+    SequenceExecution Fibonacci;        //New function factorial: reads from cin and prints factorial
+    SequenceStream cin_, cout_, n, i, a, b, c;  //Intermediate variables
+
+    Metaframe x;                        //A new interpreter context
+
+    Theory numerical_;              //A new type representing Tuples with one variable
+    Function ExceptZero;                // f[x] = x | 0 | 0 | 1 | x
+
+    //Definition of the numerical type
+    numerical_({                        //Set the restrictions on Tuples
+        ExceptZero[numerical_] == Zero, //All non-zero-index variables are identically equal to zero
+    })({                                //Set the equivalence classes, numerical_(a) == numerical_(b) iff Tuple(a) == Tuple(b) or a == b
+        Identity,                       
+    })({                                //Set the operations and closure: +*[]
+        TuplesPlus,5
+        TuplesProduct,
+        TuplesSetConstant,
+    });
+
+    //Definition of the interpreter context
+    x({
+                                        //Inherit from global
+    })({                                
+        std::cin, std::cout             //Inherit cin and cout
+    })({
+        cin_ <= std::cin,               //cin and cout are based on console IO
+        cout_ <= std::cout,
+        n[numerical_],                  //n, i, a, b and c are numerical types
+        i[numerical_],
+        a[numerical_],
+        b[numerical_],
+        c[numerical_],
+    })({                                //meta commands: all numerical variables must be pure
+        (numerical_(var_)[pure_]),
+    });
+
+    //Definition of the Fibonacci function
+    Fibonacci({})({                     //Factorial Definition and code
+        n <= cin_,                      //It takes no inputs
+        a <= 0,
+        b <= 1,
+        for_({i, n - 1})({              //for i = 0; i <= n-1; i++
+            c <= a,
+            a <= b,
+            b <= a + c,
+        }),
+        cout_ <= b,                     //output factorial to console
+    })({
+        pure_(a, b, c, i, n),           //describe the optimization contract: a, b, c, i are pure variables
+        stream_(cin_, cout_)            //cin and cout are impure variables
+    });
+
+    //The "type" of this function as per the optimization contract, is:
+    //n <= cin_, cout_ <= b[var_ = ...(n)]
+    //The cin_ and cout_ statements are kept intact because they are streams, their order matters everytime
+    //b is a pure function of n and the value output on cout_ is equivalent to ...(x) of the value received on cin_
+
+    //Example compiler description:
+    Theory CBackend;    //Describe the CBackend as a theory
+    CBackend({ ... });  //Include types, blocks, functions, branching flow, memory, etc
+
+    Theory Compiler;    //Describe the compiler passes
+    Compiler({});
+
+    
+    //Example passes: Replace all restrictedtuples with their types, replace for with while
+    //On the lhs only for everything, add asserts that the variable belongs to the type
+    //Demonstrate that Fibonacci__1 and Fibonacci have the same "type"
+    Fibonacci({})({
+        n[numerical_] <= cin_,
+        a[numerical_] <= 0,
+        b[numerical_] <= 1,
+        i[numerical_] <= 0,
+        while_({i != n})({
+            assert_[i >= 0 and i + 1 <= n],     //Because it came from a strong for loop, i is always between 0 and n - 1 inclusive
+            c[numerical_] <= a,
+            a[numerical_] <= b,
+            b[numerical_] <= a + c,
+            i[numerical_] <= i + 1,
+        }),
+        cout_ <= b[numerical_],
+    });
+
+    //Convert to recursion
+    SequenceFunction FibonacciLoop1;
+    FibonacciLoop1({ i[numerical_], a[numerical_], b[numerical_], c[numerical_], n[numerical_] })({
+        assert_[i >= 0 and i + 1 <= n],
+        c[numerical_] <= a,
+        a[numerical_] <= b,
+        b[numerical_] <= a + c,
+        i[numerical_] <= i + 1,
+        if_({i != n})({
+            return_ <= FibonacciLoop1(i + 1, a, b, c, n)
+        })({
+            return_ <= (i + 1, a, b, c, n)
+        })
+    });
+
+    Fibonacci({})({
+        n[numerical_] <= cin_,
+        a[numerical_] <= 0,
+        b[numerical_] <= 1,
+        i[numerical_] <= 0,
+        (i, a, b, c, n) <= FibonacciLoop1(i, a, b, c, n),
+        cout_ <= b,
+    });
+
+    //Constant propagation:
+    Fibonacci({})({
+        n[numerical_] <= cin_,
+        (i, a, b, c, n) <= FibonacciLoop1(0, 0, 1, Indeterminate([numerical_]), n),
+        cout_ <= b,
+    });
+
+    //Theory propagation:
+    FibonacciLoop1({ i[numerical_], a[numerical_], b[numerical_], c[numerical_], n[numerical_] })({
+        assert_[i >= 0 and i + 1 <= n],
+        if_({i != n})({
+            return_ <= FibonacciLoop1(i + 1, b, a + b, a, n)
+        })({
+            return_ <= (i + 1, a, b, c, n)
+        })
+    });
+
+    //Invariant code elimination:
+    FibonacciLoop1({ i[numerical_], a[numerical_], b[numerical_], n[numerical_]})({
+        assert_[i >= 0 and i + 1 <= n],
+        if_({i != n})({
+            return_ <= FibonacciLoop1(i + 1, b, a + b, n)
+        })({
+            return_ <= (i + 1, a, b, n)
+        })
+    });
+
+    Fibonacci({})({
+        n[numerical_] <= cin_,
+        (_, _, b, _) <= FibonacciLoop1(0, 0, 1, n),
+        cout_ <= b,
+    });
+
+    //Theory Strengthening:
+    FibonacciLoop1({ i[numerical_], a[numerical_], b[numerical_], n[numerical_] })({
+        assert_[i >= 0 and i + 1 <= n],
+        if_({i != n})({
+            assert_[i != n],
+            return_ <= FibonacciLoop1(i + 1, b, a + b, n)
+        })({
+            assert_[i = n],
+            return_ <= (i + 1, a, b, n)
+        })
+    });
+
+    Fibonacci({})({
+        n[numerical_] <= cin_,
+        (_, _, b, _) <= FibonacciLoop1(0, 0, 1, n),
+        cout_ <= b,
+    });
+
+
+    //Proof of validity
+    //Show that Fibonacci as defined here is equivalent to the Fibonacci defined above, with all relaxations being part of the optimization contract
+    Fibonacci({})({                     //Factorial Definition and code
+        n << cin_,                      //It takes no inputs
+        a << 0,
+        b << 1,
+        for_({i, n - 1})({              //for i = 0; i <= n-1; i++
+            c << a,
+            a << b,
+            b << a + c,
+        }),
+        cout_ << b,                     //output factorial to console
+    })({
+        pure_(a, b, c, i, n),           //describe the optimization contract: a, b, c, i are pure variables, their existence can be optimized out
+        stream_(cin_, cout_)            //cin and cout are impure variables, every operation and every value therein is protected
+    });
+    */
+    return 0;
 }

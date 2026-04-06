@@ -25,7 +25,7 @@
 //Hasher lib
 //#include <boost/container_hash/hash.hpp>
 //Lightweight threads lib
-//#include <boost/fiber/fiber.hpp>
+#include <boost/fiber/fiber.hpp>
 #undef min
 #undef max
 

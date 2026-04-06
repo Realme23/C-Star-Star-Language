@@ -53,6 +53,7 @@
 
 
 //Compiler specific declaration of assumptions used
+//Warning: The check can be elided by time-travel optimizations!
 //Suggested: Off in debug mode, on in release mode
 #define ASSUME(cond,reason) do { ASSERT((cond), reason); if(__ENABLE_ASSUMES) ASSUME_C(cond,reason); } while(0)
 //Compiler specific declaration of unreachability

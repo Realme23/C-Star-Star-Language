@@ -161,18 +161,26 @@
       <AdditionalIncludeDirectories>C:\Shared\Secure\Programming\Boost\boost_1_90_0</AdditionalIncludeDirectories>
       <LanguageStandard>stdcpp23</LanguageStandard>
       <UseDynamicDebugging>false</UseDynamicDebugging>
-      <StringPooling>false</StringPooling>
+      <StringPooling>true</StringPooling>
       <MinimalRebuild>false</MinimalRebuild>
-      <SmallerTypeCheck>true</SmallerTypeCheck>
+      <SmallerTypeCheck>false</SmallerTypeCheck>
       <ExternalWarningLevel>TurnOffAllWarnings</ExternalWarningLevel>
       <DisableAnalyzeExternal>true</DisableAnalyzeExternal>
-      <AdditionalOptions>/D "_ALLOW_RTCc_IN_STL" /Bd %(AdditionalOptions)</AdditionalOptions>
+      <AdditionalOptions>/D "_ALLOW_RTCc_IN_STL" /Bd /fsanitize=address %(AdditionalOptions)</AdditionalOptions>
       <FloatingPointModel>Strict</FloatingPointModel>
+      <ControlFlowGuard>false</ControlFlowGuard>
+      <FunctionLevelLinking>true</FunctionLevelLinking>
+      <EnableParallelCodeGeneration>false</EnableParallelCodeGeneration>
+      <EnforceTypeConversionRules>true</EnforceTypeConversionRules>
+      <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
+      <InlineFunctionExpansion>Disabled</InlineFunctionExpansion>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <StackReserveSize>8589934592</StackReserveSize>
+      <AdditionalLibraryDirectories>C:\Shared\Secure\Programming\Boost\boost_1_90_0\stage\lib\;</AdditionalLibraryDirectories>
+      <AdditionalOptions>/INFERASANLIBS %(AdditionalOptions)</AdditionalOptions>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
@@ -191,6 +199,7 @@
       <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <StackReserveSize>8589934592</StackReserveSize>
+      <AdditionalLibraryDirectories>C:\Shared\Secure\Programming\Boost\boost_1_90_0\stage\lib\</AdditionalLibraryDirectories>
     </Link>
   </ItemDefinitionGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
