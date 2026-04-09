@@ -59,19 +59,24 @@ namespace c_star_star {
 		std::vector<IAny>::iterator IMany::VectorIterateClass::begin() {
 			return target->container.begin();
 		}
-		std::vector<IAny>::const_iterator IMany::VectorIterateClass::begin() const {
+		std::vector<IAny>::const_iterator IMany::ConstVectorIterateClass::begin() const {
 			return target->container.cbegin();
 		}
 		std::vector<IAny>::iterator IMany::VectorIterateClass::end() {
 			return target->container.end();
 		}
-		std::vector<IAny>::const_iterator IMany::VectorIterateClass::end() const {
+		std::vector<IAny>::const_iterator IMany::ConstVectorIterateClass::end() const {
 			return target->container.cend();
 		}
 
 		IMany::VectorIterateClass IMany::VectorIterate() {
 			VectorIterateClass return_value;
 			return_value.target = this;
+			return return_value;
+		}
+
+		IMany::ConstVectorIterateClass IMany::ConstVectorIterate() const {
+			ConstVectorIterateClass return_value(this);
 			return return_value;
 		}
 

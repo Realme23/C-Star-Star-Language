@@ -74,6 +74,9 @@
     <ClInclude Include="Source\Polymorphic\IAny.h" />
     <ClInclude Include="Source\Polymorphic\IMany.h" />
   </ItemGroup>
+  <ItemGroup>
+    <Text Include="Source\Text.txt" />
+  </ItemGroup>
   <PropertyGroup Label="Globals">
     <VCProjectVersion>17.0</VCProjectVersion>
     <Keyword>Win32Proj</Keyword>
@@ -174,6 +177,7 @@
       <EnforceTypeConversionRules>true</EnforceTypeConversionRules>
       <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
       <InlineFunctionExpansion>Disabled</InlineFunctionExpansion>
+      <TreatWarningAsError>true</TreatWarningAsError>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -194,6 +198,7 @@
       <AdditionalIncludeDirectories>C:\Shared\Secure\Programming\Boost\boost_1_90_0</AdditionalIncludeDirectories>
       <LanguageStandard>stdcpp23</LanguageStandard>
       <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
+      <TreatWarningAsError>true</TreatWarningAsError>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>

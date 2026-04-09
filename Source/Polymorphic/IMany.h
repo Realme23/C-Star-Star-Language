@@ -20,11 +20,20 @@ namespace c_star_star {
                 IMany* target;
             public:
                 std::vector<IAny>::iterator begin();
-                std::vector<IAny>::const_iterator begin() const;
                 std::vector<IAny>::iterator end();
+                friend class IMany;
+            };
+
+            //A class that represents a pair of vector iterators over IMany
+            class ConstVectorIterateClass {
+                const IMany* target;
+            public:
+                ConstVectorIterateClass(const IMany* target): target(target) {}
+                std::vector<IAny>::const_iterator begin() const;
                 std::vector<IAny>::const_iterator end() const;
                 friend class IMany;
             };
+
 
             //A friend class that has easy construction; useful for function arguments
             friend class PolyMany;
@@ -69,6 +78,8 @@ namespace c_star_star {
 
             //Iterator pair as a vector
             VectorIterateClass VectorIterate();
+
+            ConstVectorIterateClass ConstVectorIterate() const;
 
             //Check if the two Manys have the same elements in the same order (1,2,3,4 == 1,2,3,4)
             //Check as if lhs and rhs are vectors
@@ -204,7 +215,7 @@ namespace c_star_star {
             template<typename T>
             void AssertAllType(std::string message) const {
                 for (const IAny& element : container) {
-                    ASSERT(element.HasCPPType<T>(), message.c_str());
+                    ASSERT(element.HasCppType<T>(), message.c_str());
                 }
                 return;
             }

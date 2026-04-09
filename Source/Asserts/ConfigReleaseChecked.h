@@ -25,7 +25,7 @@
 #define __ENABLE_ASSERTS 1 
 //Whether to enable compiler assumption hints
 //ASSUME(x) checks validity with ASSERT(x)
-#define __ENABLE_ASSUMES 1 
+#define __ENABLE_ASSUMES 0 
 //Whether to allow known broken/incomplete code
 #define __NO_FIXME_PANIC false 
 

@@ -28,7 +28,7 @@ namespace c_star_star {
 
 			//Check if a type is stored (template parameter version)
 			template<typename T>
-			IComparisonResult HasCPPType() const;
+			IComparisonResult HasCppType() const;
 
 			//Extract either a stored value or an empty IAny
 			any GetBoostAny() const;
@@ -80,14 +80,14 @@ namespace c_star_star {
 		//Compare an IAny with another type
 		template<typename T>
 		bool operator==(const IAny& lhs, const T& rhs) {
-			if (not lhs.HasCPPType<T>()) {
+			if (not lhs.HasCppType<T>()) {
 				return false;
 			}
 			return lhs.GetCppType<T>("Already tested") == rhs;
 		}
 
 		template<typename T>
-		IComparisonResult IAny::HasCPPType() const {
+		IComparisonResult IAny::HasCppType() const {
 			IComparisonResult return_value = IsCPPType(typeid(T));
 
 			if (return_value == true)

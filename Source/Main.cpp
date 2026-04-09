@@ -31,6 +31,7 @@ Describe a "heritable meta-context" describing impure additions to the low-level
     Includes modules and a build system
     Module definitions are based on the high-level description
     Goal: build/package code, source-level security, describe meta/environment-information and generate/interpret/transform modules
+        Meta/environment information includes exposing a piece of code as a new datatype to another module
     Design constraint: Move all computation to the low-level language and all specification in the higher-level language, include the interpreter
 Describe a higher-level language, representing an "optimization contract" over the lower-level language
     describes the allowed optimizations of the implemented code
@@ -214,184 +215,44 @@ Tuple parse_tuple(const std::string& is)
 
 
 int main() {
+    using namespace c_star_star::functions::library;
+    using namespace c_star_star::functions::simple_executor;
+    using namespace c_star_star::functions::tie;
+    using namespace c_star_star::data_types;
 
-    /*
-    //Classes and definitions
-    SequenceExecution Fibonacci;        //New function factorial: reads from cin and prints factorial
-    SequenceStream cin_, cout_, n, i, a, b, c;  //Intermediate variables
+    Tuple input_x = PolyTuple({ 10, 20, 30 });
+    Tuple input_y = PolyTuple({ 60, 70 });
+    Tuple input_z;
+    input_z.GetNumber_Index(-200) = 10;
+    input_z.GetNumber_Index(0)    = 11;
+    input_z.GetNumber_Index(300)  = 12;
 
-    Metaframe x;                        //A new interpreter context
+    std::cout << input_x.to_str() << '\n';
+    std::cout << input_y.to_str() << '\n';
+    std::cout << input_z.to_str() << '\n';
 
-    Theory numerical_;              //A new type representing Tuples with one variable
-    Function ExceptZero;                // f[x] = x | 0 | 0 | 1 | x
+    SimpleTie result = tie::SimpleTieTogether({ input_x, input_y, input_z });
+    std::cout << result.tuple().to_str() << '\n';
 
-    //Definition of the numerical type
-    numerical_({                        //Set the restrictions on Tuples
-        ExceptZero[numerical_] == Zero, //All non-zero-index variables are identically equal to zero
-    })({                                //Set the equivalence classes, numerical_(a) == numerical_(b) iff Tuple(a) == Tuple(b) or a == b
-        Identity,                       
-    })({                                //Set the operations and closure: +*[]
-        TuplesPlus,5
-        TuplesProduct,
-        TuplesSetConstant,
-    });
+    Tuple extract1 = tie::cppUntieApart(result, 0);
+    Tuple extract2 = tie::cppUntieApart(result, 1);
+    Tuple extract3 = tie::cppUntieApart(result, 2);
 
-    //Definition of the interpreter context
-    x({
-                                        //Inherit from global
-    })({                                
-        std::cin, std::cout             //Inherit cin and cout
-    })({
-        cin_ <= std::cin,               //cin and cout are based on console IO
-        cout_ <= std::cout,
-        n[numerical_],                  //n, i, a, b and c are numerical types
-        i[numerical_],
-        a[numerical_],
-        b[numerical_],
-        c[numerical_],
-    })({                                //meta commands: all numerical variables must be pure
-        (numerical_(var_)[pure_]),
-    });
+    std::cout << extract1.to_str() << '\n';
+    std::cout << extract2.to_str() << '\n';
+    std::cout << extract3.to_str() << '\n';
 
-    //Definition of the Fibonacci function
-    Fibonacci({})({                     //Factorial Definition and code
-        n <= cin_,                      //It takes no inputs
-        a <= 0,
-        b <= 1,
-        for_({i, n - 1})({              //for i = 0; i <= n-1; i++
-            c <= a,
-            a <= b,
-            b <= a + c,
-        }),
-        cout_ <= b,                     //output factorial to console
-    })({
-        pure_(a, b, c, i, n),           //describe the optimization contract: a, b, c, i are pure variables
-        stream_(cin_, cout_)            //cin and cout are impure variables
-    });
+    Tuple parameter;
+    parameter.GetNumber_Index(0) = 1;
+    parameter.GetNumber_Index(1) = 8;
+    parameter.GetNumber_Index(2) = 8;
+    parameter.GetNumber_Index(3) = 1;
+    Tuple copy1 = tie::SimpleUntieApart(0).dispatchThis(result.tuple());
+    Tuple copy2 = tie::SimpleUntieApart(1).dispatchThis(result.tuple());
+    Tuple copy3 = tie::SimpleUntieApart(2).dispatchThis(result.tuple());
+    std::cout << copy1.to_str() << '\n';
+    std::cout << copy2.to_str() << '\n';
+    std::cout << copy3.to_str() << '\n';
 
-    //The "type" of this function as per the optimization contract, is:
-    //n <= cin_, cout_ <= b[var_ = ...(n)]
-    //The cin_ and cout_ statements are kept intact because they are streams, their order matters everytime
-    //b is a pure function of n and the value output on cout_ is equivalent to ...(x) of the value received on cin_
-
-    //Example compiler description:
-    Theory CBackend;    //Describe the CBackend as a theory
-    CBackend({ ... });  //Include types, blocks, functions, branching flow, memory, etc
-
-    Theory Compiler;    //Describe the compiler passes
-    Compiler({});
-
-    
-    //Example passes: Replace all restrictedtuples with their types, replace for with while
-    //On the lhs only for everything, add asserts that the variable belongs to the type
-    //Demonstrate that Fibonacci__1 and Fibonacci have the same "type"
-    Fibonacci({})({
-        n[numerical_] <= cin_,
-        a[numerical_] <= 0,
-        b[numerical_] <= 1,
-        i[numerical_] <= 0,
-        while_({i != n})({
-            assert_[i >= 0 and i + 1 <= n],     //Because it came from a strong for loop, i is always between 0 and n - 1 inclusive
-            c[numerical_] <= a,
-            a[numerical_] <= b,
-            b[numerical_] <= a + c,
-            i[numerical_] <= i + 1,
-        }),
-        cout_ <= b[numerical_],
-    });
-
-    //Convert to recursion
-    SequenceFunction FibonacciLoop1;
-    FibonacciLoop1({ i[numerical_], a[numerical_], b[numerical_], c[numerical_], n[numerical_] })({
-        assert_[i >= 0 and i + 1 <= n],
-        c[numerical_] <= a,
-        a[numerical_] <= b,
-        b[numerical_] <= a + c,
-        i[numerical_] <= i + 1,
-        if_({i != n})({
-            return_ <= FibonacciLoop1(i + 1, a, b, c, n)
-        })({
-            return_ <= (i + 1, a, b, c, n)
-        })
-    });
-
-    Fibonacci({})({
-        n[numerical_] <= cin_,
-        a[numerical_] <= 0,
-        b[numerical_] <= 1,
-        i[numerical_] <= 0,
-        (i, a, b, c, n) <= FibonacciLoop1(i, a, b, c, n),
-        cout_ <= b,
-    });
-
-    //Constant propagation:
-    Fibonacci({})({
-        n[numerical_] <= cin_,
-        (i, a, b, c, n) <= FibonacciLoop1(0, 0, 1, Indeterminate([numerical_]), n),
-        cout_ <= b,
-    });
-
-    //Theory propagation:
-    FibonacciLoop1({ i[numerical_], a[numerical_], b[numerical_], c[numerical_], n[numerical_] })({
-        assert_[i >= 0 and i + 1 <= n],
-        if_({i != n})({
-            return_ <= FibonacciLoop1(i + 1, b, a + b, a, n)
-        })({
-            return_ <= (i + 1, a, b, c, n)
-        })
-    });
-
-    //Invariant code elimination:
-    FibonacciLoop1({ i[numerical_], a[numerical_], b[numerical_], n[numerical_]})({
-        assert_[i >= 0 and i + 1 <= n],
-        if_({i != n})({
-            return_ <= FibonacciLoop1(i + 1, b, a + b, n)
-        })({
-            return_ <= (i + 1, a, b, n)
-        })
-    });
-
-    Fibonacci({})({
-        n[numerical_] <= cin_,
-        (_, _, b, _) <= FibonacciLoop1(0, 0, 1, n),
-        cout_ <= b,
-    });
-
-    //Theory Strengthening:
-    FibonacciLoop1({ i[numerical_], a[numerical_], b[numerical_], n[numerical_] })({
-        assert_[i >= 0 and i + 1 <= n],
-        if_({i != n})({
-            assert_[i != n],
-            return_ <= FibonacciLoop1(i + 1, b, a + b, n)
-        })({
-            assert_[i = n],
-            return_ <= (i + 1, a, b, n)
-        })
-    });
-
-    Fibonacci({})({
-        n[numerical_] <= cin_,
-        (_, _, b, _) <= FibonacciLoop1(0, 0, 1, n),
-        cout_ <= b,
-    });
-
-
-    //Proof of validity
-    //Show that Fibonacci as defined here is equivalent to the Fibonacci defined above, with all relaxations being part of the optimization contract
-    Fibonacci({})({                     //Factorial Definition and code
-        n << cin_,                      //It takes no inputs
-        a << 0,
-        b << 1,
-        for_({i, n - 1})({              //for i = 0; i <= n-1; i++
-            c << a,
-            a << b,
-            b << a + c,
-        }),
-        cout_ << b,                     //output factorial to console
-    })({
-        pure_(a, b, c, i, n),           //describe the optimization contract: a, b, c, i are pure variables, their existence can be optimized out
-        stream_(cin_, cout_)            //cin and cout are impure variables, every operation and every value therein is protected
-    });
-    */
     return 0;
 }

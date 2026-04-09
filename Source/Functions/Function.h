@@ -1,6 +1,8 @@
 #pragma once
+#include "../Main.h"
 #include "../Polymorphic/IMany.h"
 #include "../Datatypes/Tuple.h"
+#include "../Datatypes/Number.h"
 
 namespace c_star_star {
 	namespace functions {
@@ -9,6 +11,9 @@ namespace c_star_star {
 		}
 		namespace builder {
 			class FunctionBuilder;
+		}
+		namespace tie {
+			class SimpleTie;
 		}
 	}
 }
@@ -53,6 +58,7 @@ namespace c_star_star {
 					SetIndex,           //Return R[a[0]] = b[0]
 					Borrow,             //Return the value of calling a "higher" function, with an input strictly between current input and zero
 					MaxHeight,          //Return a Tuple representing the max and min-height of the input
+					Dilate,				//Return R[d[0] *i + d[1]] = (i % d[3] == d[2] ? input[(i - d[2]) /d[3]] : 0)
 				};
 
 				static std::unordered_map<number_, NodeType> FunctionTypes;
@@ -78,7 +84,7 @@ namespace c_star_star {
 				//Retrieve the functions/operands from within the FunctionNodes()
 				Tuple dispatchThis(Tuple input_);
 
-				Tuple operator()(Tuple input);
+				//Tuple operator()(Tuple input);
 
 				std::string print_Function(bool is_sub = false);
 
@@ -128,6 +134,7 @@ namespace c_star_star {
 					UnsetBorrowFromNode,    //The node that is borrowed from
 					SetBorrowFrom,          //A "borrow from" node that is set to another function
 					CallFunctionNode,       //Calls a prebuilt function
+					Dilate,					//Return R[d[0] *i + d[1]] = (i % d[3] == d[2] ? input[(i - d[2]) /d[3]] : 0)
 				};
 
 				number_ builder_id = 0;
@@ -160,11 +167,18 @@ namespace c_star_star {
 
 				FunctionBuilder(Function F);
 
+				FunctionBuilder(PolyTuple i);
+
 				void setName(std::string s);
 
 				static FunctionBuilder Variable();
 
 				static FunctionBuilder BorrowFrom();
+
+				//Check that all "upward links" are from borrow nodes
+				bool CheckCycles() const;
+
+				bool CheckCycles(std::unordered_set<FunctionBuilder>& seen) const;
 
 				FunctionBuilder operator+(const FunctionBuilder rhs) const;
 
@@ -180,22 +194,32 @@ namespace c_star_star {
 
 				FunctionBuilder operator-() const;
 
-				FunctionBuilder(PolyTuple i);
-
 				//Build Expression FunctionBorrowedNode
-				FunctionBuilder operator()(const FunctionBuilder shrink, const PolyTuple basecase) const;
+				FunctionBuilder operator()(const FunctionBuilder shrink, const FunctionBuilder control) const;
 
 				//Apply the function to the output of F rather than input
 				FunctionBuilder operator()(const FunctionBuilder F) const;
 
 				friend IComparisonToBool operator==(const FunctionBuilder& a, const FunctionBuilder& b);
 
+				friend class Dilate;
+				//Build a dilate expression
+				FunctionBuilder(Dilate d);
+
+				//Create a set of seen functionbuilders from this one
+				void build_seen_set(std::unordered_set<FunctionBuilder>& seen) const;
+
+				//Set a borrowed-from node only!
+				//Set it to another function
 				void operator^=(const FunctionBuilder& F);
 
 				//Returns a function that can evaluate the constructed builder
 				Function buildFunction() const;
 
 				std::string print_dbg();
+
+				//Print the node type
+				static std::string printNodeType(FunctionBuilderNodeTypes type);
 
 				//Returns R: R[i] = T[i]
 				//Ignores variable and returns T
@@ -214,7 +238,7 @@ namespace c_star_star {
 				static void SetRemainderFunction(Function& F, Function lhs, Function rhs);
 
 				//Sets the recursive call - not the recursive definition
-				static void SetBorrow(Function& F, Function shrink, Tuple basecase, Function top);
+				static void SetBorrow(Function& F, Function shrink, Function top, Function control);
 
 				//Returns R[i] := check[i] < threshold[i] ? ifLess[i] : ifEqualOrMore[i]
 				static void SetPointwiseLess(Function& F, Function check, Function threshold, Function ifLess, Function ifEqualOrMore);
@@ -236,8 +260,15 @@ namespace c_star_star {
 				//R[0] = MaxHeight(a), R[1] = MinHeight(a), if a == 0 R == 0
 				static void SetMaxHeight(Function& F, Function a);
 
+				//R[p0 *i + p1] = (i % p3 == p2 ? input[i - p2] /p3 : 0)
+				static void SetDilate(Function& F, Function input, Function parameter1, Function parameter2, Function parameter3, Function parameter4);
+
 			private:
 				FunctionBuilder ReplaceIdentity(const FunctionBuilder& F) const;
+
+				FunctionBuilder ReplaceIdentity(const FunctionBuilder& F, std::unordered_set<FunctionBuilder>& seen) const;
+
+				static FunctionBuilder DeepCopy(const FunctionBuilder& F);
 
 				//Sets a borrowed-from node to its value
 				void setBorrowed(const FunctionBuilder& F);
@@ -285,7 +316,6 @@ namespace c_star_star {
 			//a << b || alt_1 || alt_2
 			class LexicographicCase1;
 			class LexicographicCase2;
-
 
 			class PointwiseCase1 {
 			public:
@@ -341,15 +371,14 @@ namespace c_star_star {
 				FunctionBuilder::SetTypeOP operator>>(const FunctionBuilder F) const;
 			};
 
-			//If Test(x) == case_, return Value(x), else return Main(x);
-			FunctionBuilder CreateCase(Tuple case_, FunctionBuilder Value, FunctionBuilder Main, FunctionBuilder Test);
-
-			//base[index] = value, base[!index] = base
-			FunctionBuilder CreatePiecewiseAt(FunctionBuilder base, FunctionBuilder index, FunctionBuilder value);
-
-			//Return a function that performs pointwise x < 0 ? -x : x
-			FunctionBuilder PointwiseAbs(FunctionBuilder base);
+			class Dilate {
+				friend class FunctionBuilder;
+				FunctionBuilder input, parameter1, parameter2, parameter3, parameter4;
+			public:
+				Dilate(FunctionBuilder input, FunctionBuilder parameter1, FunctionBuilder parameter2, FunctionBuilder parameter3, FunctionBuilder parameter4) : input(input), parameter1(parameter1), parameter2(parameter2), parameter3(parameter3), parameter4(parameter4) {}
+			};
 		}
+
 		namespace simple_executor {
 
 			using namespace core;
@@ -449,8 +478,15 @@ namespace c_star_star {
 			Tuple EvaluatePointwiseProduct(Tuple input_a, Tuple input_b);
 
 			//Returns the "pointwise" quotient of both inputs
-			// x/0 == 0
+			// x/0 == 0, 0/0 == 0
+			// quotient always satisfies "Euclidean division" (remainder between 0 and b)
+			// q = sign(b)*(a / floor(b))
 			Tuple EvaluatePointwiseQuotient(Tuple input_a, Tuple input_b);
+
+			// r = a - b*(a/b)
+			// x % 0 == x, 0 % 0 == 0
+			// 0 <= r <= b
+			Tuple EvaluatePointwiseRemainder(Tuple input_a, Tuple input_b);
 
 			//R[i] := a[i] < b[i] ? c[i] : d[i]
 			Tuple EvaluatePointwiseLess(Tuple input_a, Tuple input_b, Tuple input_c, Tuple input_d);
@@ -464,19 +500,25 @@ namespace c_star_star {
 			//R[0] = b[a[0]]
 			Tuple EvaluateGetIndex(Tuple input_a, Tuple input_b);
 
-			//Takes four parameters: Input, Recursive call argument generator, basecase, and full-function
+			//Takes four parameters: Input, Recursive call argument generator, and full-function and control
 			//Uses "shrinker" to "shrink" the operand to a lexicographically smaller tuple
-			//If shrunk operand is L<= 0 or has any negative element at positive index; return the basecase
-			//Return the result of applying the "top" function to the shrunk value
+			//Control controls the recursion, the recursion terminates if at any point control(operand) looks like it won't terminate
+			// The test for recursion and validity is control(operand) and control(shrunk(operand))
+			//Misbehaving is: when it isn't smaller, when the right half is empty, when it has an element in the right half < 0
+			//Return the result of applying the "top" function to the shrunk value (not the control(operand))
 			//If top returns the "true" function, can be used to create recursive calls
 			//eg: A borrow node with shrinker = x - 1, and a borrow node with shrinker = x - 2, on top(x) = borrow1 + borrow2 can represent the fibonacci function
-			Tuple EvaluateBorrow(Tuple Op1, Function shrinker, Tuple basecase, Function top);
+			Tuple EvaluateBorrow(Tuple Op1, Function shrinker, Function top, Function control);
 
-			//If lessOp1 < lessOp2, return ifLess else ifNotLess
+			//If lessOp1 L< lessOp2, return ifLess else ifNotLess
 			Tuple EvaluateLexicographicLess(Tuple lessOp1, Tuple lessOp2, Tuple ifLess, Tuple ifNotLess);
 
 			//Return the min- and max- height as a Tuple
+			//min-height at 0 and max-height at 1
 			Tuple EvaluateMaxHeight(Tuple input);
+
+			//Return R[d[0] *i + d[1]] = (i % d[3] == d[2] ? input[i] : 0)
+			Tuple EvaluateDilate(Tuple input, Tuple parameter1, Tuple parameter2, Tuple parameter3, Tuple parameter4);
 
 			class SimpleExecutor {
 			public:
@@ -484,6 +526,51 @@ namespace c_star_star {
 				static Tuple ExecuteFunctionCached(Function F, Tuple input);
 				static std::unordered_map<std::pair<Function, Tuple>, Tuple> cache;
 			};
+		}
+
+		//A library of FunctionBuilders
+		namespace library {
+			using namespace builder;
+
+			//If Test(x) == case_, return Value(x), else return Main(x);
+			FunctionBuilder CreateCase(Tuple case_, FunctionBuilder Value, FunctionBuilder Main, FunctionBuilder Test);
+
+			//base[index] = value, base[!index] = base
+			FunctionBuilder CreatePiecewiseAt(FunctionBuilder base, FunctionBuilder index, FunctionBuilder value);
+
+			//Return a function that performs pointwise x < 0 ? -x : x
+			FunctionBuilder PointwiseAbs(FunctionBuilder base);
+
+			//Return R[shift, shift + offset] = input[start, start + offset]
+			FunctionBuilder ShiftPiecewise(FunctionBuilder input, FunctionBuilder shift, FunctionBuilder start, FunctionBuilder offset);
+		}
+
+		//Tie together a list of Tuples into a single Tuple, so that a function may take multiple Tuples
+		//A list of Tuples can be tied into a single Tuple, which can be passed into functions
+		//The tied-together tuples can be extracted with Functions and then operated on
+		//	The default-case for invalid Tuples must be all zeroes
+		//This is separate from Functions as a concept, and is allowed to use a different representation for each Tie
+		namespace tie {
+			using namespace core;
+
+			//A Tie object stores implementation-specific information about that tie, including the resulting Tuple itself
+			// The inputs must be fully constructible from the Tie's "operator Tuple()" alone
+			class SimpleTie {
+				Tuple T;
+			public:
+				SimpleTie(Tuple T): T(T) {}
+				Tuple tuple() const {
+					return T;
+				}
+			};
+
+			//This ties together Tuples by storing the number of input Tuples at zero,
+			// the cumulative sum of min-heights (for their start) and the difference (max-height - min-height),
+			// and then concatenating their data from min-height to max-height
+			SimpleTie SimpleTieTogether(const std::initializer_list<Tuple>& list_T);
+
+			//Extracting the Tuple is as easy as looking up the index within the number of tuples, if its stored then looking up the min-heights and the size, then jumping to the corresponding relevant indexes and extracting that Tuple
+			Function SimpleUntieApart(const SimpleTie& T, number_ index);
 		}
 	}
 }
@@ -494,7 +581,12 @@ namespace std {
 		size_t operator()(const c_star_star::functions::core::Function& x) const;
 	};
 }
-
+namespace std {
+	template <> struct hash<c_star_star::functions::builder::FunctionBuilder>
+	{
+		size_t operator()(const c_star_star::functions::builder::FunctionBuilder& x) const;
+	};
+}
 namespace std {
 	template<> struct
 		hash<std::pair<c_star_star::functions::core::Function, c_star_star::data_types::Tuple>> {
