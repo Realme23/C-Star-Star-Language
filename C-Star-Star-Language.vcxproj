@@ -129,6 +129,10 @@
     <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
   </ImportGroup>
   <PropertyGroup Label="UserMacros" />
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+    <IntDir>Q:\Users\user\source\repos\$(ProjectName)\.vs\</IntDir>
+    <OutDir>Q:\Users\user\source\repos\$(ProjectName)\Build\</OutDir>
+  </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <ClCompile>
       <WarningLevel>Level3</WarningLevel>
@@ -161,8 +165,8 @@
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
-      <AdditionalIncludeDirectories>C:\Shared\Secure\Programming\Boost\boost_1_90_0</AdditionalIncludeDirectories>
-      <LanguageStandard>stdcpp23</LanguageStandard>
+      <AdditionalIncludeDirectories>Q:\Users\user\source\boost_1_91_0\boost;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <LanguageStandard>stdcpplatest</LanguageStandard>
       <UseDynamicDebugging>false</UseDynamicDebugging>
       <StringPooling>true</StringPooling>
       <MinimalRebuild>false</MinimalRebuild>
@@ -183,7 +187,7 @@
       <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <StackReserveSize>8589934592</StackReserveSize>
-      <AdditionalLibraryDirectories>C:\Shared\Secure\Programming\Boost\boost_1_90_0\stage\lib\;</AdditionalLibraryDirectories>
+      <AdditionalLibraryDirectories>Q:\Users\user\source\boost_1_91_0\libs</AdditionalLibraryDirectories>
       <AdditionalOptions>/INFERASANLIBS %(AdditionalOptions)</AdditionalOptions>
     </Link>
   </ItemDefinitionGroup>
