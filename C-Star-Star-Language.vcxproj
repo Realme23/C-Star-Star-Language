@@ -130,8 +130,8 @@
   </ImportGroup>
   <PropertyGroup Label="UserMacros" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
-    <IntDir>Q:\Users\user\source\repos\$(ProjectName)\.vs\</IntDir>
-    <OutDir>Q:\Users\user\source\repos\$(ProjectName)\Build\</OutDir>
+    <IntDir>%userprofile%\source\repos\$(ProjectName)\.vs\</IntDir>
+    <OutDir>%userprofile%\source\repos\$(ProjectName)\Build\</OutDir>
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <ClCompile>
@@ -165,7 +165,7 @@
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
-      <AdditionalIncludeDirectories>Q:\Users\user\source\boost_1_91_0\boost;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>%userprofile%\source\boost_1_91_0\;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <LanguageStandard>stdcpplatest</LanguageStandard>
       <UseDynamicDebugging>false</UseDynamicDebugging>
       <StringPooling>true</StringPooling>

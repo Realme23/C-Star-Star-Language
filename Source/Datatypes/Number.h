@@ -21,8 +21,8 @@ namespace c_star_star {
 		inline std::string to_string(number_fast x) { return x.str(); }
 		inline std::string to_string(number_small x) { return std::to_string(x); }
 
-		constexpr size_t to_size_t(number_stringd n) { ASSERT(n <= std::numeric_limits<size_t>::max(), "Too big to fit"); ASSERT(n >= 0, "Must be non-negative"); return n.convert_to<size_t>(); }
-		constexpr size_t to_size_t(number_fast n) { ASSERT(n <= std::numeric_limits<size_t>::max(), "Too big to fit"); ASSERT(n >= 0, "Must be non-negative"); return n.convert_to<size_t>(); }
-		constexpr size_t to_size_t(number_small n) { ASSERT(n <= (number_small)(std::numeric_limits<size_t>::max()), "Too big to fit"); ASSERT(n >= 0, "Must be non-negative"); return n; }
+		size_t to_size_t(number_stringd n) { ASSERT(n <= std::numeric_limits<size_t>::max(), "Too big to fit"); ASSERT(n >= 0, "Must be non-negative"); return n.convert_to<size_t>(); }
+		size_t to_size_t(number_fast n) { ASSERT(n <= std::numeric_limits<size_t>::max(), "Too big to fit"); ASSERT(n >= 0, "Must be non-negative"); return n.convert_to<size_t>(); }
+		size_t to_size_t(number_small n) { ASSERT(n <= (number_small)(std::numeric_limits<size_t>::max()), "Too big to fit"); ASSERT(n >= 0, "Must be non-negative"); return n; }
 	}
 }
