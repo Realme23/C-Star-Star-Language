@@ -135,6 +135,7 @@ namespace c_star_star {
 					SetBorrowFrom,          //A "borrow from" node that is set to another function
 					CallFunctionNode,       //Calls a prebuilt function
 					Dilate,					//Return R[d[0] *i + d[1]] = (i % d[3] == d[2] ? input[(i - d[2]) /d[3]] : 0)
+					MinMaxHeight,
 				};
 
 				number_ builder_id = 0;
@@ -203,8 +204,14 @@ namespace c_star_star {
 				friend IComparisonToBool operator==(const FunctionBuilder& a, const FunctionBuilder& b);
 
 				friend class Dilate;
+				
 				//Build a dilate expression
 				FunctionBuilder(Dilate d);
+
+				friend class MinMaxHeight;
+
+				//Build a dilate expression
+				FunctionBuilder(MinMaxHeight d);
 
 				//Create a set of seen functionbuilders from this one
 				void build_seen_set(std::unordered_set<FunctionBuilder>& seen) const;
@@ -369,6 +376,13 @@ namespace c_star_star {
 
 			struct SetType {
 				FunctionBuilder::SetTypeOP operator>>(const FunctionBuilder F) const;
+			};
+
+			class MinMaxHeight {
+				friend class FunctionBuilder;
+				FunctionBuilder input;
+			public:
+				MinMaxHeight(FunctionBuilder input): input(input) {}
 			};
 
 			class Dilate {

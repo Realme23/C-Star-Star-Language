@@ -21,25 +21,6 @@
 //A class to implement the static max_id; map<id, data>; value() = map[id] pattern (Use a single max_id for all classes)
 
 
-//Design:
-/*
-Describe an imperative, low-level language over Tuples, with determinism, purity, and static_asserts
-    Includes Sequences, Functions, Sequence Executions, Asserts
-    The "type" of a sequence is the full definition of it, the type of a pure function is the map of its inputs to outputs
-    Goal: describe pure, verifiable, multithreaded computations over all platforms/devices
-Describe a "heritable meta-context" describing impure additions to the low-level language and hygienic macros
-    Includes modules and a build system
-    Module definitions are based on the high-level description
-    Goal: build/package code, source-level security, describe meta/environment-information and generate/interpret/transform modules
-        Meta/environment information includes exposing a piece of code as a new datatype to another module
-    Design constraint: Move all computation to the low-level language and all specification in the higher-level language, include the interpreter
-Describe a higher-level language, representing an "optimization contract" over the lower-level language
-    describes the allowed optimizations of the implemented code
-    include theories and static_asserts; describe the allowed/expected behaviours
-    use constants from the heritable meta-context to describe compiler passes to apply different compiler passes
-    can describe which plugins can be compiled together
-*/
-
 using namespace c_star_star::polymorphic;
 using namespace c_star_star::number;
 using namespace c_star_star::data_types;
@@ -220,39 +201,7 @@ int main() {
     using namespace c_star_star::functions::tie;
     using namespace c_star_star::data_types;
 
-    Tuple input_x = PolyTuple({ 10, 20, 30 });
-    Tuple input_y = PolyTuple({ 60, 70 });
-    Tuple input_z;
-    input_z.GetNumber_Index(-200) = 10;
-    input_z.GetNumber_Index(0)    = 11;
-    input_z.GetNumber_Index(300)  = 12;
 
-    std::cout << input_x.to_str() << '\n';
-    std::cout << input_y.to_str() << '\n';
-    std::cout << input_z.to_str() << '\n';
-
-    SimpleTie result = tie::SimpleTieTogether({ input_x, input_y, input_z });
-    std::cout << result.tuple().to_str() << '\n';
-
-    Tuple extract1 = tie::cppUntieApart(result, 0);
-    Tuple extract2 = tie::cppUntieApart(result, 1);
-    Tuple extract3 = tie::cppUntieApart(result, 2);
-
-    std::cout << extract1.to_str() << '\n';
-    std::cout << extract2.to_str() << '\n';
-    std::cout << extract3.to_str() << '\n';
-
-    Tuple parameter;
-    parameter.GetNumber_Index(0) = 1;
-    parameter.GetNumber_Index(1) = 8;
-    parameter.GetNumber_Index(2) = 8;
-    parameter.GetNumber_Index(3) = 1;
-    Tuple copy1 = tie::SimpleUntieApart(0).dispatchThis(result.tuple());
-    Tuple copy2 = tie::SimpleUntieApart(1).dispatchThis(result.tuple());
-    Tuple copy3 = tie::SimpleUntieApart(2).dispatchThis(result.tuple());
-    std::cout << copy1.to_str() << '\n';
-    std::cout << copy2.to_str() << '\n';
-    std::cout << copy3.to_str() << '\n';
 
     return 0;
 }

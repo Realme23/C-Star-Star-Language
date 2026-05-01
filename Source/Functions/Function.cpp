@@ -578,6 +578,17 @@ namespace c_star_star {
 				FunctionBuilderNode() = FunctionBuilderNodeTypes::Dilate;
 			}
 
+			FunctionBuilder::FunctionBuilder(MinMaxHeight d)
+			{
+				const FunctionBuilder& operand = d.input;
+				ASSUME(isNotUninitialized(operand), "Must be initialized");
+
+				data().clear();
+				data().InsertTypeEnd<FunctionBuilder>(operand);
+				FunctionBuilderNode() = FunctionBuilderNodeTypes::MinMaxHeight;
+
+			}
+
 			//Returns a function that can evaluate the constructed builder
 			Function FunctionBuilder::buildFunction() const {
 				FIXME("Assert that all \"Uplinks\" are from BorrowNodes");
@@ -1141,8 +1152,10 @@ namespace c_star_star {
 			number_ FunctionBuilder::max_builder_id = 0;
 			std::unordered_map<number_, FunctionBuilder::FunctionBuilderNodeTypes> FunctionBuilder::node_types;
 			std::unordered_map<number_, std::string> FunctionBuilder::names;
+			
 			//Describe the input variable as a functionbuilder node
 			const FunctionBuilder var_ = FunctionBuilder::Variable();
+			
 			//A valueless variable to syntactically define SetIndex
 			SetType set;
 
@@ -1722,22 +1735,6 @@ namespace c_star_star {
 
 		namespace tie {
 
-			//a = [1, 2, 3]
-			//b = [6, 7]
-			//c = [-200: 10, 0: 11, 300: 12]
-			//Tied = [-1: 4, (a:)0, 3, 9, (b:) 0, 2, 12, (c:)-200, 501, 14, (data:)1, 2, 3, 6, 7, 10, ..., 11, ..., 12]
-			//To extract c: Index = 2
-			//Index < Tied[-1](4) -> continue
-			//Min-height =  Tied[(Index) * 3]     = Tied[6] = -200
-			//Size =	    Tied[(Index) * 3 + 1] = Tied[7] = 500
-			//Start-index = Tied[(Index) * 3 + 2] = Tied[8] = 14
-			//c[Min-height] = Tied[Start-index] = Tied[14] = 10
-			//c[Min-height+1] = Tied[Start-index+1] = Tied[15] = 0
-			//...
-			//c[Min-height+200] = Tied[Start-index+200] = Tied[214] = 11
-			//c[Min-height+201] = Tied[Start-index+201] = Tied[215] = 0
-			//...
-			//c[Min-height+500] = Tied[Start-index+500] = Tied[514] = 12
 			SimpleTie SimpleTieTogether(const std::initializer_list<Tuple>& list_T)
 			{
 				Tuple T;
@@ -1812,6 +1809,7 @@ namespace c_star_star {
 
 				return EarlyExit1.buildFunction();
 			}
+
 		}
 	}
 }
