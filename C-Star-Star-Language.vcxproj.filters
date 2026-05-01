@@ -45,6 +45,9 @@
     <ClCompile Include="Source\Functions\Function.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="Source\Functions\Sequence.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Source\Utils\Precomp.h">
@@ -89,8 +92,8 @@
     <ClInclude Include="Source\Functions\Function.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-  </ItemGroup>
-  <ItemGroup>
-    <Text Include="Source\Text.txt" />
+    <ClInclude Include="Source\Functions\Sequence.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
 </Project>

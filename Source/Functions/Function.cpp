@@ -2,14 +2,14 @@
 
 namespace std {
 	size_t
-		hash<std::pair<c_star_star::functions::core::Function, c_star_star::data_types::Tuple>>
-		::operator()(const std::pair<c_star_star::functions::core::Function, c_star_star::data_types::Tuple>& x) const
+		hash<std::pair<c_star_star::function::core::Function, c_star_star::data_types::Tuple>>
+		::operator()(const std::pair<c_star_star::function::core::Function, c_star_star::data_types::Tuple>& x) const
 	{
-		return std::hash<c_star_star::functions::core::Function>()(x.first) ^ std::hash<c_star_star::data_types::Tuple>()(x.second);
+		return std::hash<c_star_star::function::core::Function>()(x.first) ^ std::hash<c_star_star::data_types::Tuple>()(x.second);
 	}
 }
 namespace std {
-	size_t hash<c_star_star::functions::core::Function>::operator()(const c_star_star::functions::core::Function& x) const
+	size_t hash<c_star_star::function::core::Function>::operator()(const c_star_star::function::core::Function& x) const
 	{
 		using namespace boost::multiprecision;
 		using namespace std;
@@ -17,7 +17,7 @@ namespace std {
 	}
 }
 namespace std {
-	size_t hash<c_star_star::functions::builder::FunctionBuilder>::operator()(const c_star_star::functions::builder::FunctionBuilder& x) const
+	size_t hash<c_star_star::function::builder::FunctionBuilder>::operator()(const c_star_star::function::builder::FunctionBuilder& x) const
 	{
 		return c_star_star::number::to_size_t(abs((x.builder_id) % (1LL << 31)));
 	}
@@ -25,7 +25,7 @@ namespace std {
 
 
 namespace c_star_star {
-	namespace functions {
+	namespace function {
 		namespace core {
 			using c_star_star::polymorphic::IMany;
 			using c_star_star::data_types::Tuple;
@@ -814,58 +814,58 @@ namespace c_star_star {
 				);
 				switch (type)
 				{
-				case c_star_star::functions::builder::FunctionBuilder::FunctionBuilderNodeTypes::Uninitialized:
+				case c_star_star::function::builder::FunctionBuilder::FunctionBuilderNodeTypes::Uninitialized:
 					return "Uninitialized!";
 					break;
-				case c_star_star::functions::builder::FunctionBuilder::FunctionBuilderNodeTypes::ConstantTerminal:
+				case c_star_star::function::builder::FunctionBuilder::FunctionBuilderNodeTypes::ConstantTerminal:
 					return "Const";
 					break;
-				case c_star_star::functions::builder::FunctionBuilder::FunctionBuilderNodeTypes::VariableTerminal:
+				case c_star_star::function::builder::FunctionBuilder::FunctionBuilderNodeTypes::VariableTerminal:
 					return "x";
 					break;
-				case c_star_star::functions::builder::FunctionBuilder::FunctionBuilderNodeTypes::FunctionPlus:
+				case c_star_star::function::builder::FunctionBuilder::FunctionBuilderNodeTypes::FunctionPlus:
 					return "+";
 					break;
-				case c_star_star::functions::builder::FunctionBuilder::FunctionBuilderNodeTypes::FunctionMinus:
+				case c_star_star::function::builder::FunctionBuilder::FunctionBuilderNodeTypes::FunctionMinus:
 					return "-";
 					break;
-				case c_star_star::functions::builder::FunctionBuilder::FunctionBuilderNodeTypes::FunctionProduct:
+				case c_star_star::function::builder::FunctionBuilder::FunctionBuilderNodeTypes::FunctionProduct:
 					return "*";
 					break;
-				case c_star_star::functions::builder::FunctionBuilder::FunctionBuilderNodeTypes::FunctionQuotient:
+				case c_star_star::function::builder::FunctionBuilder::FunctionBuilderNodeTypes::FunctionQuotient:
 					return "/";
 					break;
-				case c_star_star::functions::builder::FunctionBuilder::FunctionBuilderNodeTypes::FunctionMod:
+				case c_star_star::function::builder::FunctionBuilder::FunctionBuilderNodeTypes::FunctionMod:
 					return "%";
 					break;
-				case c_star_star::functions::builder::FunctionBuilder::FunctionBuilderNodeTypes::FunctionPointwiseLess:
+				case c_star_star::function::builder::FunctionBuilder::FunctionBuilderNodeTypes::FunctionPointwiseLess:
 					return "P<";
 					break;
-				case c_star_star::functions::builder::FunctionBuilder::FunctionBuilderNodeTypes::FunctionPiecewiseLess:
+				case c_star_star::function::builder::FunctionBuilder::FunctionBuilderNodeTypes::FunctionPiecewiseLess:
 					return "|";
 					break;
-				case c_star_star::functions::builder::FunctionBuilder::FunctionBuilderNodeTypes::FunctionLexicographicLess:
+				case c_star_star::function::builder::FunctionBuilder::FunctionBuilderNodeTypes::FunctionLexicographicLess:
 					return "L<";
 					break;
-				case c_star_star::functions::builder::FunctionBuilder::FunctionBuilderNodeTypes::FunctionGetIndex:
+				case c_star_star::function::builder::FunctionBuilder::FunctionBuilderNodeTypes::FunctionGetIndex:
 					return "[]";
 					break;
-				case c_star_star::functions::builder::FunctionBuilder::FunctionBuilderNodeTypes::FunctionSetIndex:
+				case c_star_star::function::builder::FunctionBuilder::FunctionBuilderNodeTypes::FunctionSetIndex:
 					return "Set[]";
 					break;
-				case c_star_star::functions::builder::FunctionBuilder::FunctionBuilderNodeTypes::FunctionBorrowedNode:
+				case c_star_star::function::builder::FunctionBuilder::FunctionBuilderNodeTypes::FunctionBorrowedNode:
 					return "Borrowed";
 					break;
-				case c_star_star::functions::builder::FunctionBuilder::FunctionBuilderNodeTypes::UnsetBorrowFromNode:
+				case c_star_star::function::builder::FunctionBuilder::FunctionBuilderNodeTypes::UnsetBorrowFromNode:
 					return "Borrow(Unset)";
 					break;
-				case c_star_star::functions::builder::FunctionBuilder::FunctionBuilderNodeTypes::SetBorrowFrom:
+				case c_star_star::function::builder::FunctionBuilder::FunctionBuilderNodeTypes::SetBorrowFrom:
 					return "Borrow definition";
 					break;
-				case c_star_star::functions::builder::FunctionBuilder::FunctionBuilderNodeTypes::CallFunctionNode:
+				case c_star_star::function::builder::FunctionBuilder::FunctionBuilderNodeTypes::CallFunctionNode:
 					return "Call";
 					break;
-				case c_star_star::functions::builder::FunctionBuilder::FunctionBuilderNodeTypes::Dilate:
+				case c_star_star::function::builder::FunctionBuilder::FunctionBuilderNodeTypes::Dilate:
 					return "Dilate";
 					break;
 				default:

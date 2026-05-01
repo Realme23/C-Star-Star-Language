@@ -5,7 +5,7 @@
 #include "../Datatypes/Number.h"
 
 namespace c_star_star {
-	namespace functions {
+	namespace function {
 		namespace simple_executor {
 			class SimpleExecutor;
 		}
@@ -19,7 +19,7 @@ namespace c_star_star {
 }
 
 namespace c_star_star {
-	namespace functions {
+	namespace function {
 		namespace core {
 			using c_star_star::polymorphic::IMany;
 			using c_star_star::data_types::Tuple;
@@ -590,20 +590,20 @@ namespace c_star_star {
 }
 
 namespace std {
-	template <> struct hash<c_star_star::functions::core::Function>
+	template <> struct hash<c_star_star::function::core::Function>
 	{
-		size_t operator()(const c_star_star::functions::core::Function& x) const;
+		size_t operator()(const c_star_star::function::core::Function& x) const;
 	};
 }
 namespace std {
-	template <> struct hash<c_star_star::functions::builder::FunctionBuilder>
+	template <> struct hash<c_star_star::function::builder::FunctionBuilder>
 	{
-		size_t operator()(const c_star_star::functions::builder::FunctionBuilder& x) const;
+		size_t operator()(const c_star_star::function::builder::FunctionBuilder& x) const;
 	};
 }
 namespace std {
 	template<> struct
-		hash<std::pair<c_star_star::functions::core::Function, c_star_star::data_types::Tuple>> {
-		size_t operator()(const std::pair<c_star_star::functions::core::Function, c_star_star::data_types::Tuple>& x) const;
+		hash<std::pair<c_star_star::function::core::Function, c_star_star::data_types::Tuple>> {
+		size_t operator()(const std::pair<c_star_star::function::core::Function, c_star_star::data_types::Tuple>& x) const;
 	};
 }

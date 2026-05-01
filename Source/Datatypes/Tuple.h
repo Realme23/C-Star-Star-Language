@@ -3,7 +3,7 @@
 #include "../Utils/IComparison.h"
 
 namespace c_star_star {
-    namespace functions {
+    namespace function {
         namespace core {
             class Function;
         }
@@ -27,7 +27,7 @@ namespace c_star_star {
 			friend bool operator==(const Tuple& a, const Tuple& b);
 			friend bool operator!=(const Tuple& a, const Tuple& b);
 
-			friend class c_star_star::functions::core::Function;
+			friend class c_star_star::function::core::Function;
 
 		public:
             std::map<number_, number_> data;
